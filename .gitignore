@@ -1,0 +1,25 @@
+# ビルド出力
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+TestResults/
+*.trx
+
+# azd とローカル実行
+.azure/
+.artifacts/
+.env
+.env.*
+!.env.example
+
+# 評価の出力
+eval/.results/
+eval/out/
+
+# その他
+*.log
+node_modules/
+.DS_Store

@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/UpdatesCowork.Shared/UpdatesCowork.Shared.csproj" />
+    <Project Path="src/UpdatesCowork.AzureUpdates/UpdatesCowork.AzureUpdates.csproj" />
+    <Project Path="src/UpdatesCowork.Office/UpdatesCowork.Office.csproj" />
+    <Project Path="src/UpdatesCowork.Agent/UpdatesCowork.Agent.csproj" />
+    <Project Path="src/UpdatesCowork.Web/UpdatesCowork.Web.csproj" />
+    <Project Path="src/UpdatesCowork.SiteProxy/UpdatesCowork.SiteProxy.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UpdatesCowork.Office.Tests/UpdatesCowork.Office.Tests.csproj" />
+    <Project Path="tests/UpdatesCowork.AzureUpdates.Tests/UpdatesCowork.AzureUpdates.Tests.csproj" />
+    <Project Path="tests/UpdatesCowork.Agent.Tests/UpdatesCowork.Agent.Tests.csproj" />
+    <Project Path="tests/UpdatesCowork.Web.Tests/UpdatesCowork.Web.Tests.csproj" />
+    <Project Path="tests/UpdatesCowork.SiteProxy.Tests/UpdatesCowork.SiteProxy.Tests.csproj" />
+  </Folder>
+  <Folder Name="/eval/">
+    <Project Path="eval/UpdatesCowork.Evaluation.Tests/UpdatesCowork.Evaluation.Tests.csproj" />
+    <Project Path="eval/UpdatesCowork.EvalRunner/UpdatesCowork.EvalRunner.csproj" />
+  </Folder>
+</Solution>

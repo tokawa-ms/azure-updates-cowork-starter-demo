@@ -1,0 +1,19 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{json,yaml,yml,bicep,props,targets,csproj,slnx,xml,html,css,js,md}]
+indent_size = 2
+
+[*.{ps1,cmd,bat}]
+end_of_line = crlf
+
+[*.cs]
+# 名前空間 UpdatesCowork.Shared は設計書(4.1節)で決めた名前。VB の予約語との衝突は問題にしない。
+dotnet_diagnostic.CA1716.severity = none

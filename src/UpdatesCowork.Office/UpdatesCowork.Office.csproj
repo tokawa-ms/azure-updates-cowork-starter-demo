@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>UpdatesCowork.Office</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\UpdatesCowork.Shared\UpdatesCowork.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Templates\report-template.docx" LogicalName="UpdatesCowork.Office.Templates.report-template.docx" />
+    <EmbeddedResource Include="Templates\deck-template.pptx" LogicalName="UpdatesCowork.Office.Templates.deck-template.pptx" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="UpdatesCowork.Office.Tests" />
+  </ItemGroup>
+</Project>

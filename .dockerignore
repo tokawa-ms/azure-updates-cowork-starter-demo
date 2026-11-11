@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+.git/
+.azure/
+.artifacts/
+.env
+.env.*
+eval/
+docs/
+tests/
+infra/
+tools/
+**/TestResults/
