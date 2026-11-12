@@ -1,5 +1,7 @@
 # 更新情報サイトの調査
 
+日本語 (プライマリ) | [English](site-survey-en.md)
+
 確認日: 2026-11-11。Edge のブラウザーでローカル siteproxy と web を開いて確認した。上流サイトの仕様は固定APIではなく、変更時には再調査が必要になる。
 
 ## ヘッダーとオリジン
@@ -28,3 +30,5 @@ HTML内の上流絶対URLをプロキシ内のパスに読み替える。外部�
 ## 再現手順
 
 READMEのローカル起動後、ブラウザーのネットワークタブで `/__rc/` の応答を確認する。`SiteProxy__ProxyDataApi=false` にして siteproxy を再起動すると失敗時と比較できる。比較後は変数を削除して再起動し、既定の `true` に戻す。
+
+現在の[README](../../README.md)ではWebとAgentだけを起動する。この調査は旧プロキシ構成の記録なので、再現するときは`UpdatesCowork.SiteProxy`を別途起動する。

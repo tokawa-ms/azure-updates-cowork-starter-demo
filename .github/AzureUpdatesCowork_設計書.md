@@ -1,3 +1,5 @@
+**日本語** | [English](AzureUpdatesCowork_設計書-en.md)
+
 # Azure Updates Cowork設計書
 
 - 版: 1.0 (2026-11-11)

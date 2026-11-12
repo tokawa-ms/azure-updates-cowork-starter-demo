@@ -24,11 +24,11 @@ internal sealed class CoworkMcpServer(AgentTelemetry telemetry, ILogger<CoworkMc
         builder.WebHost.ConfigureKestrel(server => server.Limits.MaxRequestBodySize = 512 * 1024);
         builder.Logging.ClearProviders();
         builder.Services.AddSingleton(services.GetRequiredService<ILoggerFactory>());
-        var tools = services.GetRequiredService<CoworkTools>().CreateTools(requireApproval: false);
+        var tools = services.GetRequiredService<CoworkTools>().CreateTools(requireApproval: false).Cast<AIFunction>().ToArray();
         builder.Services.AddMcpServer(options =>
             options.ServerInfo = new Implementation { Name = "updates-cowork-tools", Version = "1.0.0" })
             .WithHttpTransport(options => options.Stateless = true)
-            .WithTools(tools.Cast<AIFunction>().Select(tool => McpServerTool.Create(tool, new McpServerToolCreateOptions
+            .WithTools(tools.Select(tool => McpServerTool.Create(tool, new McpServerToolCreateOptions
             {
                 UseStructuredContent = true,
                 ReadOnly = !ToolNames.IsArtifactTool(tool.Name),
@@ -49,6 +49,21 @@ internal sealed class CoworkMcpServer(AgentTelemetry telemetry, ILogger<CoworkMc
                         AgentLog.InvalidInput(logger, request.Params?.Name ?? "mcp");
                         activity?.SetStatus(ActivityStatusCode.Error);
                         return Error("セッション情報が正しくありません。");
+                    }
+
+                    var tool = tools.FirstOrDefault(tool => tool.Name == request.Params?.Name);
+                    if (tool is not null && tool.JsonSchema.TryGetProperty("required", out var required))
+                    {
+                        var missing = required.EnumerateArray().Select(property => property.GetString()!)
+                            .Where(name => request.Params?.Arguments is not { } arguments
+                                || !arguments.TryGetValue(name, out var value) || value.ValueKind == JsonValueKind.Null).ToArray();
+                        if (missing.Length > 0)
+                        {
+                            AgentLog.InvalidInput(logger, tool.Name);
+                            activity?.SetStatus(ActivityStatusCode.Error);
+                            activity?.SetTag(TelemetryNames.Attributes.Outcome, TelemetryNames.Outcomes.Error);
+                            return Error($"必須の引数がありません: {string.Join(", ", missing)}。ツール定義に従って引数を指定してください。");
+                        }
                     }
 
                     McpInvocationContext.SessionId.Value = session;

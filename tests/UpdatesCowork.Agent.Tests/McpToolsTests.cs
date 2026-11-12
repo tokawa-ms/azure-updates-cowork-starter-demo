@@ -81,6 +81,12 @@ public sealed class McpToolsTests
         var body = new SlideSpec("概要", ["固定データの内容"], "発表者ノート");
         var deck = new DeckSpec("slides", "更新情報", null, [body, body, body],
             [new SourceRef("出典", "https://azure.microsoft.com/updates?id=559242")]);
+        var missing = Assert.IsType<JsonElement>(await function.InvokeAsync(
+            new AIFunctionArguments { ["deck"] = deck }, TestContext.Current.CancellationToken));
+        Assert.False(missing.GetProperty("ok").GetBoolean());
+        Assert.Contains("totalSlides", missing.GetProperty("error").GetString(), StringComparison.Ordinal);
+        Assert.False(missing.TryGetProperty("artifact", out _));
+
         foreach (var total in new[] { 2, 3, 15 })
         {
             var rejected = Assert.IsType<JsonElement>(await function.InvokeAsync(

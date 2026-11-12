@@ -61,8 +61,8 @@ internal static class EvaluationDefinition
 
         var cases = (await LoadAsync(dataset, cancellationToken).ConfigureAwait(false)).Take(limit).ToArray();
         var client = new FixtureAzureUpdatesClient(fixtures);
-        var definitions = await CreateToolDefinitionsAsync(fixtures, cancellationToken).ConfigureAwait(false);
-        var instructions = AgentFactory.LoadInstructions();
+        var (definitions, skillInstructions) = await CreateToolDefinitionsAsync(fixtures, cancellationToken).ConfigureAwait(false);
+        var instructions = AgentFactory.LoadInstructions() + "\n\n" + skillInstructions;
         var rows = new JsonArray();
         Directory.CreateDirectory(Path.Combine(output, "requests"));
         foreach (var test in cases)
@@ -80,6 +80,11 @@ internal static class EvaluationDefinition
             if (pageContext.Length > 0) query.Add(QueryMessage("developer", pageContext));
             query.Add(QueryMessage("user", test.Query));
             row["query"] = query;
+            // Task Adherence は developer を取り出さないため、採点用だけ system 内に元の文脈を保持する。
+            row["task_query"] = new JsonArray(
+                QueryMessage("system", pageContext.Length == 0 ? instructions
+                    : instructions + "\n\n# この依頼に付随する developer メッセージ（元のページ情報）\n" + pageContext),
+                QueryMessage("user", test.Query));
             row["tool_definitions"] = definitions.DeepClone();
             row["context"] = update is null ? test.GroundTruth : HtmlToText.Convert(update.Description);
             rows.Add(new JsonObject { ["item"] = row });
@@ -107,6 +112,7 @@ internal static class EvaluationDefinition
             ["agent_version"] = version,
             ["judge"] = judge,
             ["response_source"] = "recorded_hosted_response",
+            ["task_query_format"] = "system_with_developer_context_v1",
         };
         var properties = new JsonObject();
         foreach (var field in new[] { "id", "page_context", "ground_truth", "context" })
@@ -114,6 +120,7 @@ internal static class EvaluationDefinition
             properties[field] = new JsonObject { ["type"] = "string" };
         }
         properties["query"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "object" } };
+        properties["task_query"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "object" } };
         properties["tool_definitions"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "object" } };
         properties["response"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "object" } };
         properties["output_items"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "object" } };
@@ -122,7 +129,7 @@ internal static class EvaluationDefinition
         {
             var mapping = new JsonObject
             {
-                ["query"] = "{{item.query}}",
+                ["query"] = name == "task_adherence" ? "{{item.task_query}}" : "{{item.query}}",
                 ["response"] = "{{item.response}}",
                 ["tool_definitions"] = "{{item.tool_definitions}}",
             };
@@ -144,7 +151,7 @@ internal static class EvaluationDefinition
                 ["item_schema"] = new JsonObject
                 {
                     ["type"] = "object", ["properties"] = properties,
-                    ["required"] = new JsonArray("id", "query", "page_context", "ground_truth", "tool_definitions", "response", "output_items"),
+                    ["required"] = new JsonArray("id", "query", "task_query", "page_context", "ground_truth", "tool_definitions", "response", "output_items"),
                 },
                 ["include_sample_schema"] = false,
             },
@@ -262,7 +269,7 @@ internal static class EvaluationDefinition
     internal static Task WriteAsync(string path, JsonNode json, CancellationToken cancellationToken) =>
         File.WriteAllTextAsync(path, json.ToJsonString(EvalJsonContext.Default.Options), cancellationToken);
 
-    private static async Task<JsonArray> CreateToolDefinitionsAsync(string fixtures, CancellationToken cancellationToken)
+    private static async Task<(JsonArray Tools, string SkillInstructions)> CreateToolDefinitionsAsync(string fixtures, CancellationToken cancellationToken)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
@@ -294,7 +301,8 @@ internal static class EvaluationDefinition
                 ["parameters"] = JsonNode.Parse(tool.JsonSchema.GetRawText()),
             });
         }
-        return definitions;
+        return (definitions, context.Instructions
+            ?? throw new InvalidDataException("実際のスキル案内を評価入力へ取得できませんでした。"));
     }
 
     private sealed class OfflineCredential : TokenCredential

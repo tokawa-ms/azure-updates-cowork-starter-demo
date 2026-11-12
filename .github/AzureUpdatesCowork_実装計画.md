@@ -1,3 +1,5 @@
+**日本語** | [English](AzureUpdatesCowork_実装計画-en.md)
+
 # Azure Updates Cowork実装計画
 
 - 版: 1.0 (2026-11-11)

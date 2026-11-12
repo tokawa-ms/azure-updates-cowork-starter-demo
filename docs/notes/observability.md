@@ -1,5 +1,7 @@
 # MCPとトレースを見る
 
+日本語 (プライマリ) | [English](observability-en.md)
+
 対象は、このサンプルを動かす開発者です。更新の取得から資料作成までを、ローカルのAspire DashboardとFoundryに接続したApplication Insightsで追跡します。確認日: 2026-11-12。
 
 ## 実際に呼んでいるMCP
@@ -27,7 +29,7 @@ invoke_agent
             artifact.save
 ```
 
-ローカル実証のtrace IDは`<trace ID>`。45スパン、深さ6、約30秒、生成Wordは36,383バイトでした。これはAgentを直接呼んだ記録です。Dashboardの記憶領域は永続化していないため、再起動後に同じtraceが残る保証はありません。
+ローカル実証は45スパン、深さ6、約30秒、生成Wordは36,383バイトでした。実環境のtrace IDは公開資料に含めません。これはAgentを直接呼んだ記録です。Dashboardの記憶領域は永続化していないため、再起動後に同じtraceが残る保証はありません。
 
 SDK 2.4.0のActivitySourceは`Experimental.ModelContextProtocol`です。`ModelContextProtocol`だけを購読してもSDKのスパンは出ません。SDKの`tools/call`、自作`mcp.tool.execute`、HTTPのスパンはそれぞれ異なる階層です。
 
@@ -35,9 +37,9 @@ SDK 2.4.0のActivitySourceは`Experimental.ModelContextProtocol`です。`ModelC
 
 FoundryプロジェクトのAgentsで`updates-cowork`または`updates-cowork-eval`を選び、Tracesを開きます。時間範囲を実行時刻へ合わせ、`invoke_agent`から業務ツール、HTTP/MCP、Officeまで展開します。接続先App Insightsの読み取り権限が必要です。
 
-クラウドでは、WebからWord生成までが同じ`operation_Id`になることを確認しました。実証IDは`<trace ID>`。MCP SDKの`tools/call`と自作スパンもAzureへ到着しています。
+クラウドでは、WebからWord生成までが同じ`operation_Id`になることを確認しました。実環境のIDは公開資料に含めません。MCP SDKの`tools/call`と自作スパンもAzureへ到着しています。
 
-本番v10のPowerPoint生成は`<trace ID>`で78スパンを確認しました。最初の`tools/call create_powerpoint_deck`と`mcp.tool.execute`は枚数の入力不整合でエラーになり、1回の修正後は成功しています。成功した呼び出しに`office.pptx.build`と`artifact.save`がつながり、ダウンロードした実ファイルは指定どおり合計3枚でした。入力エラーと回復を隠さず、同じトレースで追えます。
+本番v10のPowerPoint生成は78スパンを確認しました。最初の`tools/call create_powerpoint_deck`と`mcp.tool.execute`は枚数の入力不整合でエラーになり、1回の修正後は成功しています。成功した呼び出しに`office.pptx.build`と`artifact.save`がつながり、ダウンロードした実ファイルは指定どおり合計3枚でした。入力エラーと回復を隠さず、同じトレースで追えます。
 
 確認用のブラウザーではFoundryへの追加サインインが必要だったため、ポータル画面の目視は未完了です。Azureの実証はApp Insightsの取得データによるもので、ポータルの全表示が確認済みという意味ではありません。
 

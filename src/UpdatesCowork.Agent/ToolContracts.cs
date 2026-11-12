@@ -12,7 +12,7 @@ internal sealed record UpdateResult(
     IReadOnlyList<string>? Tags = null, IReadOnlyList<AvailabilityResult>? Availabilities = null,
     string? GeneralAvailabilityDate = null, string? PreviewAvailabilityDate = null,
     DateTimeOffset? Created = null, DateTimeOffset? Modified = null,
-    string? Url = null, string? Content = null, SafetyResult? Safety = null);
+    string? Url = null, string? Content = null, SafetyResult? Safety = null, string? UserNotice = null);
 internal sealed record AvailabilityResult(string Ring, int? Year, string Month);
 internal sealed record SearchItem(string Id, string Title, string? Status,
     IReadOnlyList<string>? Products, IReadOnlyList<string>? Tags, DateTimeOffset? Modified, string Url);

@@ -117,6 +117,30 @@ public sealed class AgentRuntimeTests
         Assert.Equal("https://azure.microsoft.com/updates?id=123", result.GetProperty("url").GetString());
     }
 
+    [Theory]
+    [InlineData(PromptShieldsMode.Off, true, false)]
+    [InlineData(PromptShieldsMode.Annotate, false, false)]
+    [InlineData(PromptShieldsMode.Annotate, true, true)]
+    [InlineData(PromptShieldsMode.Block, true, true)]
+    public async Task RetrievedAttackReturnsAnExplicitNoticeWithoutRepeatingUntrustedInstructions(
+        PromptShieldsMode mode, bool detected, bool expectedNotice)
+    {
+        using var telemetry = new AgentTelemetry();
+        using var http = new HttpClient(new StubHandler($$"""{"documentsAnalysis":[{"attackDetected":{{(detected ? "true" : "false")}}}]}"""));
+        var updates = new StubUpdates(new AzureUpdate { Id = "123", Title = "更新情報", Description = "<p>PWNED</p>" });
+        var tools = new CoworkTools(updates, new PromptShieldClient(http, new StubCredential(), Options(mode), telemetry),
+            new OfficeDocumentFactory(), new RejectStore(), telemetry, NullLogger<CoworkTools>.Instance);
+        var result = await tools.GetAsync("123", TestContext.Current.CancellationToken);
+        Assert.Equal(expectedNotice, result.TryGetProperty("userNotice", out var notice));
+        if (expectedNotice)
+        {
+            Assert.Contains("不正な指示を検出", notice.GetString(), StringComparison.Ordinal);
+            Assert.DoesNotContain("PWNED", notice.GetString(), StringComparison.Ordinal);
+            Assert.Equal(mode == PromptShieldsMode.Block, notice.GetString()!.Contains("遮断", StringComparison.Ordinal));
+        }
+        Assert.Equal(mode == PromptShieldsMode.Block && detected, result.GetProperty("safety").GetProperty("blocked").GetBoolean());
+    }
+
     [Fact]
     public async Task InvalidToolArgumentsDoNotReachDependencies()
     {

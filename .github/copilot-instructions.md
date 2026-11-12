@@ -1,5 +1,7 @@
 # GitHub Copilotへの指示(Azure Updates Cowork)
 
+日本語 (プライマリ) | [English](copilot-instructions-en.md)
+
 ## このリポジトリについて
 
 Azureの更新情報サイトをリバースプロキシで表示し、その横のチャットからMicrosoft FoundryのHosted Agent (C#、Microsoft Agent Framework)を呼んで、表示中の更新の要約、Word、PowerPointを作る学習用サンプルです。WebアプリはAzure Container AppsのExpressで動きます。
@@ -42,7 +44,7 @@ Azureの更新情報サイトをリバースプロキシで表示し、その横
 
 ## よく使うコマンド
 
-```bash
+```powershell
 dotnet build
 dotnet test --filter Category!=Eval
 docker compose -f tools/otel/compose.yaml up -d          # Aspire Dashboard (http://localhost:18888)

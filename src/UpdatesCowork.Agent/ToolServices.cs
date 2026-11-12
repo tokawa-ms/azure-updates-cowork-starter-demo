@@ -25,6 +25,20 @@ internal static class ToolServices
             {
                 DisableLoadSkillApproval = true,
                 DisableReadSkillResourceApproval = true,
+                SkillsInstructionPrompt = """
+                    # スキルの利用条件
+                    スキルの読み込みより先に、依頼が Azure の更新情報の範囲内か、対象が分かるかを確認してください。
+                    「この更新」「いま見ている更新」の ID がページ情報にも会話にもない場合は、更新の選択または ID を依頼して終了します。
+                    対象外・対象未確定の場合は、以下のスキルと一致する単語があっても load_skill を含めツールを一切呼びません。
+                    製品名・キーワードのある検索依頼は、ページが未選択でも対象を検索できます。
+
+                    <available_skills>
+                    {skills}
+                    </available_skills>
+
+                    上の条件を満たした依頼だけ、対応する load_skill を呼び、返された手順に従います。
+                    参照資料が必要なときは read_skill_resource に記載どおりのリソース名を指定します。
+                    """,
             }, loggerFactory: sp.GetRequiredService<ILoggerFactory>()));
         services.AddSingleton<IArtifactStore>(sp => options.ArtifactsMode switch
         {
