@@ -1,0 +1,10 @@
+@agent = http://localhost:8088
+
+GET {{agent}}/readiness
+
+###
+POST {{agent}}/responses
+Content-Type: application/json
+Accept: text/event-stream
+
+{"stream":true,"input":"559242 を要約し、ID と出典 URL を付けてください。"}

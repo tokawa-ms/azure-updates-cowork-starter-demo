@@ -1,0 +1,53 @@
+name: Foundry fixed-data evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent_version:
+        description: 評価専用 Hosted Agent の版
+        required: true
+        type: string
+      limit:
+        description: ケース数の上限（全体は30件）
+        default: "30"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  evaluate:
+    runs-on: windows-latest
+    environment: evaluation
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: 10.0.x
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Run evaluation
+        shell: pwsh
+        env:
+          PROJECT_ENDPOINT: ${{ vars.FOUNDRY_PROJECT_ENDPOINT }}
+          AGENT_VERSION: ${{ inputs.agent_version }}
+          CASE_LIMIT: ${{ inputs.limit }}
+        run: |
+          ./eval/run-foundry.ps1 -ProjectEndpoint $env:PROJECT_ENDPOINT -AgentVersion $env:AGENT_VERSION -Limit ([int]$env:CASE_LIMIT) -Out eval/out/ci
+      - name: Publish summary
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path eval/out/ci/summary.md) { Get-Content eval/out/ci/summary.md -Raw >> $env:GITHUB_STEP_SUMMARY }
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: foundry-evaluation
+          path: eval/out/ci
+          if-no-files-found: warn

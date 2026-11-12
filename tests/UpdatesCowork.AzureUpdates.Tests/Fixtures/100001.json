@@ -1,0 +1,16 @@
+{
+  "id": "100001",
+  "title": "Generally available: Azure Container Apps express",
+  "description": "<p>Azure Container Apps express is now <b>generally available</b>.</p><script>alert('x')</script><style>p{color:red}</style><ul><li>Fast start</li><li>See <a href=\"https://learn.microsoft.com/azure/container-apps/\">the docs</a></li></ul><p>Line one<br>Line two</p>",
+  "status": "Launched",
+  "products": [ "Azure Container Apps" ],
+  "productCategories": [ "Containers" ],
+  "tags": [ "Features", "Gallery" ],
+  "generalAvailabilityDate": "2026-11",
+  "previewAvailabilityDate": "2026-05",
+  "privatePreviewAvailabilityDate": null,
+  "created": "2026-11-01T00:00:00Z",
+  "modified": "2026-11-10T09:30:00Z",
+  "locale": null,
+  "availabilities": [ { "ring": "General Availability", "year": 2026, "month": "November" } ]
+}

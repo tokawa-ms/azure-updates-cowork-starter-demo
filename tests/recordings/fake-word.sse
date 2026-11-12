@@ -1,0 +1,90 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_fake_word_0001","object":"response","created_at":1762804800,"status":"in_progress","model":"gpt-5-mini","conversation":null,"output":[],"usage":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_fake_word_0001","object":"response","status":"in_progress"}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"type":"reasoning","id":"rs_0001","summary":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":3,"output_index":0,"item":{"type":"reasoning","id":"rs_0001","summary":[]}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":4,"output_index":1,"item":{"type":"function_call","id":"fc_0001","call_id":"call_plan_1","name":"update_plan","arguments":"","status":"in_progress"}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":5,"item_id":"fc_0001","output_index":1,"delta":"{\"steps\":"}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":6,"item_id":"fc_0001","output_index":1,"arguments":"{\"steps\":[{\"title\":\"更新情報を取得する\",\"status\":\"in_progress\"},{\"title\":\"Word の報告書を作る\",\"status\":\"pending\"},{\"title\":\"要点を伝える\",\"status\":\"pending\"}]}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":7,"output_index":1,"item":{"type":"function_call","id":"fc_0001","call_id":"call_plan_1","name":"update_plan","arguments":"{\"steps\":[{\"title\":\"更新情報を取得する\",\"status\":\"in_progress\"},{\"title\":\"Word の報告書を作る\",\"status\":\"pending\"},{\"title\":\"要点を伝える\",\"status\":\"pending\"}]}","status":"completed"}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":8,"output_index":2,"item":{"type":"function_call_output","id":"fco_0001","call_id":"call_plan_1","output":"{\"ok\":true}"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":9,"output_index":2,"item":{"type":"function_call_output","id":"fco_0001","call_id":"call_plan_1","output":"{\"ok\":true}"}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":10,"output_index":3,"item":{"type":"function_call","id":"fc_0002","call_id":"call_get_1","name":"get_azure_update","arguments":"","status":"in_progress"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":11,"output_index":3,"item":{"type":"function_call","id":"fc_0002","call_id":"call_get_1","name":"get_azure_update","arguments":"{\"id\":\"559242\"}","status":"completed"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":12,"output_index":4,"item":{"type":"function_call_output","id":"fco_0002","call_id":"call_get_1","output":"{\"found\":true,\"update\":{\"id\":\"559242\",\"title\":\"Generally Available: Azure Container Apps express\",\"url\":\"https://azure.microsoft.com/ja-jp/updates?id=559242\",\"status\":\"Launched\",\"products\":[\"Azure Container Apps\"]}}"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":13,"output_index":5,"item":{"type":"function_call","id":"fc_0003","call_id":"call_plan_2","name":"update_plan","arguments":"{\"steps\":[{\"title\":\"更新情報を取得する\",\"status\":\"completed\"},{\"title\":\"Word の報告書を作る\",\"status\":\"in_progress\"},{\"title\":\"要点を伝える\",\"status\":\"pending\"}]}","status":"completed"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":14,"output_index":6,"item":{"type":"function_call_output","id":"fco_0003","call_id":"call_plan_2","output":"{\"ok\":true}"}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":15,"output_index":7,"item":{"type":"function_call","id":"fc_0004","call_id":"call_word_1","name":"create_word_report","arguments":"","status":"in_progress"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":16,"output_index":7,"item":{"type":"function_call","id":"fc_0004","call_id":"call_word_1","name":"create_word_report","arguments":"{\"fileName\":\"azure-update-559242-summary\",\"title\":\"Azure Container Apps express の一般提供\",\"sections\":[{\"heading\":\"概要\",\"paragraphs\":[\"Azure Container Apps express が一般提供になりました。\"]}],\"sources\":[{\"title\":\"Generally Available: Azure Container Apps express\",\"url\":\"https://azure.microsoft.com/ja-jp/updates?id=559242\"}]}","status":"completed"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":17,"output_index":8,"item":{"type":"function_call_output","id":"fco_0004","call_id":"call_word_1","output":"{\"ok\":true,\"artifact\":{\"artifactId\":\"art_01JCZ7A8B9C0D1E2F3G4H5J6K7\",\"fileName\":\"azure-update-559242-summary.docx\",\"contentType\":\"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\"kind\":\"docx\",\"sizeBytes\":18734,\"itemCount\":1,\"storage\":\"local\",\"location\":\"art_01JCZ7A8B9C0D1E2F3G4H5J6K7/azure-update-559242-summary.docx\"}}"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":18,"output_index":9,"item":{"type":"function_call","id":"fc_0005","call_id":"call_plan_3","name":"update_plan","arguments":"{\"steps\":[{\"title\":\"更新情報を取得する\",\"status\":\"completed\"},{\"title\":\"Word の報告書を作る\",\"status\":\"completed\"},{\"title\":\"要点を伝える\",\"status\":\"in_progress\"}]}","status":"completed"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":19,"output_index":10,"item":{"type":"function_call_output","id":"fco_0005","call_id":"call_plan_3","output":"{\"ok\":true}"}}
+
+event: response.debug.custom
+data: {"type":"response.debug.custom","sequence_number":20,"note":"未知のイベントは捨てる"}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":21,"output_index":11,"item":{"type":"message","id":"msg_0001","role":"assistant","status":"in_progress","content":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":22,"item_id":"msg_0001","output_index":11,"content_index":0,"part":{"type":"output_text","text":"","annotations":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":23,"item_id":"msg_0001","output_index":11,"content_index":0,"delta":"Word の報告書 **azure-update-559242-summary.docx** を作りました。\n\n"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":24,"item_id":"msg_0001","output_index":11,"content_index":0,"delta":"- Azure Container Apps express が一般提供になりました。\n"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":25,"item_id":"msg_0001","output_index":11,"content_index":0,"delta":"- 出典: [559242](https://azure.microsoft.com/ja-jp/updates?id=559242)\n"}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":26,"item_id":"msg_0001","output_index":11,"content_index":0,"text":"Word の報告書 **azure-update-559242-summary.docx** を作りました。\n\n- Azure Container Apps express が一般提供になりました。\n- 出典: [559242](https://azure.microsoft.com/ja-jp/updates?id=559242)\n"}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":27,"item_id":"msg_0001","output_index":11,"content_index":0,"part":{"type":"output_text","text":"","annotations":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":28,"output_index":11,"item":{"type":"message","id":"msg_0001","role":"assistant","status":"completed","content":[{"type":"output_text","text":"Word の報告書を作りました。","annotations":[]}]}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":29,"response":{"id":"resp_fake_word_0001","object":"response","created_at":1762804800,"status":"completed","model":"gpt-5-mini","conversation":null,"usage":{"input_tokens":5321,"output_tokens":812,"total_tokens":6133}}}
+

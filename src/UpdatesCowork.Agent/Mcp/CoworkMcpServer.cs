@@ -1,0 +1,113 @@
+using System.Diagnostics;
+using System.Net;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.AI;
+using ModelContextProtocol.Protocol;
+using ModelContextProtocol.Server;
+using UpdatesCowork.Agent.Tools;
+using UpdatesCowork.Shared;
+using UpdatesCowork.Shared.Telemetry;
+
+namespace UpdatesCowork.Agent.Mcp;
+
+internal sealed class CoworkMcpServer(AgentTelemetry telemetry, ILogger<CoworkMcpServer> logger)
+{
+    internal const string AccessHeader = "X-AUC-MCP-Access";
+    internal string AccessToken { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+
+    internal WebApplication CreateHost(IServiceProvider services, Action<WebApplicationBuilder>? configure = null)
+    {
+        var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { Args = [] });
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.WebHost.ConfigureKestrel(server => server.Limits.MaxRequestBodySize = 512 * 1024);
+        builder.Logging.ClearProviders();
+        builder.Services.AddSingleton(services.GetRequiredService<ILoggerFactory>());
+        var tools = services.GetRequiredService<CoworkTools>().CreateTools(requireApproval: false);
+        builder.Services.AddMcpServer(options =>
+            options.ServerInfo = new Implementation { Name = "updates-cowork-tools", Version = "1.0.0" })
+            .WithHttpTransport(options => options.Stateless = true)
+            .WithTools(tools.Cast<AIFunction>().Select(tool => McpServerTool.Create(tool, new McpServerToolCreateOptions
+            {
+                UseStructuredContent = true,
+                ReadOnly = !ToolNames.IsArtifactTool(tool.Name),
+                Destructive = false,
+                Idempotent = !ToolNames.IsArtifactTool(tool.Name),
+                OpenWorld = tool.Name is ToolNames.SearchAzureUpdates or ToolNames.GetAzureUpdate,
+            })))
+            .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, cancellationToken) =>
+            {
+                using var activity = telemetry.Source.StartActivity(TelemetryNames.Spans.McpToolExecute);
+                activity?.SetTag(TelemetryNames.Attributes.ToolName, request.Params?.Name);
+                var previous = McpInvocationContext.SessionId.Value;
+                try
+                {
+                    var session = request.Params?.Meta?[McpInvocationContext.SessionMetadataKey]?.GetValue<string>();
+                    if (session is not null && !McpInvocationContext.IsValidSessionId(session))
+                    {
+                        AgentLog.InvalidInput(logger, request.Params?.Name ?? "mcp");
+                        activity?.SetStatus(ActivityStatusCode.Error);
+                        return Error("セッション情報が正しくありません。");
+                    }
+
+                    McpInvocationContext.SessionId.Value = session;
+                    var result = await next(request, cancellationToken).ConfigureAwait(false);
+                    var json = CoworkMcpClient.ReadResult(result);
+                    if (json.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.False)
+                    {
+                        result.IsError = true;
+                        activity?.SetStatus(ActivityStatusCode.Error);
+                    }
+
+                    activity?.SetTag(TelemetryNames.Attributes.Outcome,
+                        result.IsError == true ? TelemetryNames.Outcomes.Error : TelemetryNames.Outcomes.Ok);
+                    return result;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // ツール境界で失敗を MCP のエラー結果に変換し、例外本文は外に出さない。
+                    AgentLog.ToolFailed(logger, request.Params?.Name ?? "mcp", ex.GetType().Name);
+                    activity?.SetTag(TelemetryNames.Attributes.ErrorType, ex.GetType().FullName);
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    return Error("internal_error");
+                }
+                finally
+                {
+                    McpInvocationContext.SessionId.Value = previous;
+                }
+            }));
+        configure?.Invoke(builder);
+        var app = builder.Build();
+        app.Use(async (context, next) =>
+        {
+            var token = context.Request.Headers[AccessHeader].ToString();
+            if (context.Request.Headers.ContainsKey("Origin")
+                || (context.Connection.RemoteIpAddress is { } remote && !IPAddress.IsLoopback(remote))
+                || !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(token), Encoding.UTF8.GetBytes(AccessToken)))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+
+            await next(context).ConfigureAwait(false);
+        });
+        app.MapMcp("/mcp");
+        return app;
+    }
+
+    private static CallToolResult Error(string message)
+    {
+        var json = ToolCallMiddleware.Error(message);
+        return new CallToolResult
+        {
+            IsError = true,
+            StructuredContent = json,
+            Content = [new TextContentBlock { Text = json.GetRawText() }],
+        };
+    }
+}

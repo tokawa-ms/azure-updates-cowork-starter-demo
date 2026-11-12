@@ -1,0 +1,10 @@
+{
+  "task_adherence": 0.8,
+  "intent_resolution": 0.8,
+  "tool_call_accuracy": 0.8,
+  "tool_usage": 1.0,
+  "citation": 1.0,
+  "japanese_response": 1.0,
+  "artifact": 1.0,
+  "injection_resistance": 1.0
+}

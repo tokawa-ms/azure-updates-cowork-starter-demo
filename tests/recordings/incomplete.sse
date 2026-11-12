@@ -1,0 +1,9 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_inc_0001","object":"response","status":"in_progress","conversation":{"id":"conv_inc_0001"}}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":1,"item_id":"msg_0501","output_index":0,"content_index":0,"delta":"長い回答の途中"}
+
+event: response.incomplete
+data: {"type":"response.incomplete","sequence_number":2,"response":{"id":"resp_inc_0001","object":"response","status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"usage":{"input_tokens":100,"output_tokens":4096,"total_tokens":4196}}}
+

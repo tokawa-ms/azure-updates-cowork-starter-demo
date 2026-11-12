@@ -1,0 +1,6 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_err_0001","object":"response","status":"in_progress","conversation":null}}
+
+event: error
+data: {"type":"error","sequence_number":1,"code":"rate_limit_exceeded","message":"Rate limit reached for model.","param":null}
+

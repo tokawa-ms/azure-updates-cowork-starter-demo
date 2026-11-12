@@ -7,9 +7,12 @@
 .artifacts/
 .env
 .env.*
-eval/
+eval/*
+!eval/fixtures/
 docs/
 tests/
 infra/
 tools/
 **/TestResults/
+.scratch/
+report.*.json

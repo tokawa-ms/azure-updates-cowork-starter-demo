@@ -1,0 +1,36 @@
+name: Build and unit tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build --configuration Release
+      - name: Run network-free unit tests
+        shell: pwsh
+        run: |
+          dotnet test --configuration Release --no-build --filter 'Category!=Eval' 2>&1 | Tee-Object unit-tests.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check evaluation CLI recovery without network
+        shell: pwsh
+        run: ./eval/tests/run-foundry.tests.ps1
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: unit-test-log
+          path: unit-tests.log
+          if-no-files-found: warn

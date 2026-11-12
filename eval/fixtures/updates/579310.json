@@ -1,0 +1,30 @@
+{
+  "id": "579310",
+  "productCategories": [
+    "Networking",
+    "Security"
+  ],
+  "tags": [
+    "Features",
+    "Services"
+  ],
+  "products": [
+    "Azure Front Door"
+  ],
+  "generalAvailabilityDate": "2026-11",
+  "previewAvailabilityDate": null,
+  "privatePreviewAvailabilityDate": null,
+  "title": "Generally Available: Azure Front Door edge actions ",
+  "description": "<p>Announcing the general availability of Azure Front Door edge\nactions (serverless compute at the edge).&nbsp;</p><p>With edge actions, customers can execute lightweight\nJavaScript functions during Azure Front Door client request/response processing\nto make real-time decisions closer to users, improving performance, security,\nand application flexibility without adding complexity to origin infrastructure.&nbsp;</p><p>Common scenarios include A/B testing, canary deployments,\nheader manipulation, request filtering, dynamic origin selection, advanced\nrouting, authentication/authorization at the edge, and many more. &nbsp;</p>Edge actions integrate seamlessly with Azure\nFront Door capabilities such as rules engine, caching, routing, and Web\nApplication Firewall (WAF). Built on Hyperlight, Microsoft’s secure micro-VM\ntechnology, edge actions provide hardware-backed isolation for customer code\nexecution.<br><p><a href=\"https://learn.microsoft.com/en-us/azure/frontdoor/edge-actions\">Learn\nmore</a>.&nbsp;&nbsp;</p>",
+  "status": "Launched",
+  "created": "2026-11-10T18:55:09.7505976Z",
+  "modified": "2026-11-10T18:55:09.7505976Z",
+  "locale": null,
+  "availabilities": [
+    {
+      "ring": "General Availability",
+      "year": 2026,
+      "month": "November"
+    }
+  ]
+}

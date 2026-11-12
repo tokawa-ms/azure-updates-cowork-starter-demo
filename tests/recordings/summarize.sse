@@ -1,0 +1,21 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_sum_0001","object":"response","status":"in_progress","conversation":{"id":"conv_sum_0001"},"output":[],"usage":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":1,"output_index":0,"item":{"type":"function_call","id":"fc_0101","call_id":"call_get_1","name":"get_azure_update","arguments":"","status":"in_progress"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":2,"output_index":0,"item":{"type":"function_call","id":"fc_0101","call_id":"call_get_1","name":"get_azure_update","arguments":"{\"id\":\"559242\"}","status":"completed"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":3,"output_index":1,"item":{"type":"function_call_output","id":"fco_0101","call_id":"call_get_1","output":[{"type":"input_text","text":"{\"found\":true,\"update\":{\"id\":\"559242\",\"title\":\"Generally Available: Azure Container Apps express\"}}"}]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"item_id":"msg_0101","output_index":2,"content_index":0,"delta":"## 要約\n\n"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"item_id":"msg_0101","output_index":2,"content_index":0,"delta":"Azure Container Apps express が一般提供になりました(ID: 559242)。"}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":6,"response":{"id":"resp_sum_0001","object":"response","status":"completed","conversation":{"id":"conv_sum_0001"},"usage":{"input_tokens":1200,"output_tokens":80,"total_tokens":1280}}}
+

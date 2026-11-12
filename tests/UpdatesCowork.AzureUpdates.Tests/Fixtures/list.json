@@ -1,0 +1,70 @@
+{
+  "@odata.context": "https://www.microsoft.com/releasecommunications/api/v2/$metadata#azure",
+  "@odata.count": 4,
+  "value": [
+    {
+      "id": "100003",
+      "title": "Retirement: Cloud Services (classic) will be retired",
+      "description": "<p>Cloud Services (classic) will be retired.</p>",
+      "status": "Launched",
+      "products": [ "Cloud Services" ],
+      "productCategories": [ "Compute" ],
+      "tags": [ "Retirements" ],
+      "generalAvailabilityDate": null,
+      "previewAvailabilityDate": null,
+      "privatePreviewAvailabilityDate": null,
+      "created": "2026-09-01T00:00:00Z",
+      "modified": "2026-10-01T00:00:00Z",
+      "locale": null,
+      "availabilities": [ { "ring": "Retirement", "year": 2027, "month": "March" } ]
+    },
+    {
+      "id": "100001",
+      "title": "Generally available: Azure Container Apps express",
+      "description": "<p>Express is generally available.</p>",
+      "status": "Launched",
+      "products": [ "Azure Container Apps" ],
+      "productCategories": [ "Containers" ],
+      "tags": [ "Features", "Gallery" ],
+      "generalAvailabilityDate": "2026-11",
+      "previewAvailabilityDate": "2026-05",
+      "privatePreviewAvailabilityDate": null,
+      "created": "2026-11-01T00:00:00Z",
+      "modified": "2026-11-10T09:30:00Z",
+      "locale": null,
+      "availabilities": [ { "ring": "General Availability", "year": 2026, "month": "November" } ]
+    },
+    {
+      "id": "100004",
+      "title": "In development: Azure SQL Database vector search improvements",
+      "description": "<p>Coming soon.</p>",
+      "status": "In development",
+      "products": [ "Azure SQL Database" ],
+      "productCategories": [ "Databases" ],
+      "tags": [ "Features" ],
+      "generalAvailabilityDate": null,
+      "previewAvailabilityDate": null,
+      "privatePreviewAvailabilityDate": null,
+      "created": "2026-09-01T00:00:00Z",
+      "modified": "2026-09-15T00:00:00Z",
+      "locale": null,
+      "availabilities": []
+    },
+    {
+      "id": "100002",
+      "title": "Public preview: Azure Functions flex consumption in more regions",
+      "description": "<p>Preview.</p>",
+      "status": "In preview",
+      "products": [ "Azure Functions" ],
+      "productCategories": [ "Compute" ],
+      "tags": [ "Regions & Datacenters" ],
+      "generalAvailabilityDate": null,
+      "previewAvailabilityDate": "2026-11",
+      "privatePreviewAvailabilityDate": null,
+      "created": "2026-11-01T00:00:00Z",
+      "modified": "2026-11-05T00:00:00Z",
+      "locale": null,
+      "availabilities": [ { "ring": "Preview", "year": "2026", "month": 11 } ]
+    }
+  ]
+}

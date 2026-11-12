@@ -56,8 +56,6 @@ public static class FeedbackRatings
 
 /// <summary><c>GET /api/config</c> の応答。</summary>
 public sealed record ClientConfig(
-    string SiteProxyOrigin,
-    string StartPath,
     string AuthMode,
     ClientFeatures Features);
 

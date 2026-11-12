@@ -1,0 +1,87 @@
+# web (BFF)の API を手で試すためのファイル(Visual Studio / VS Code の REST Client 形式)。
+# 先に web を起動する: dotnet run --project src/UpdatesCowork.Web
+# Cookie (auc_uid) はクライアントが自動で保存して送り返す。threadId は応答から取って下の変数に入れる。
+
+@web = https://localhost:7101
+@threadId = th_01JCZ6V3S1Y4M5K8Q2W7E9R0TA
+
+### 正常性確認
+GET {{web}}/healthz
+
+### 画面の設定
+GET {{web}}/api/config
+
+### 新しいスレッド
+POST {{web}}/api/threads/new
+Content-Type: application/json
+X-AUC-Request: 1
+
+{}
+
+### 依頼を送る(SSE)。threadId を省くと新しいスレッドになり、meta イベントで返る
+POST {{web}}/api/chat
+Content-Type: application/json
+Accept: text/event-stream
+X-AUC-Request: 1
+
+{
+  "message": "このアップデートを要約して",
+  "action": "summarize",
+  "pageContext": {
+    "upstreamUrl": "https://azure.microsoft.com/ja-jp/updates?id=559242",
+    "updateId": "559242",
+    "title": "Generally Available: Azure Container Apps express",
+    "lang": "ja-jp"
+  }
+}
+
+### 同じスレッドで続ける(2回目の依頼)
+POST {{web}}/api/chat
+Content-Type: application/json
+Accept: text/event-stream
+X-AUC-Request: 1
+
+{
+  "threadId": "{{threadId}}",
+  "message": "このアップデートを Word にまとめて",
+  "action": "word",
+  "pageContext": {
+    "upstreamUrl": "https://azure.microsoft.com/ja-jp/updates?id=559242",
+    "updateId": "559242",
+    "title": "Generally Available: Azure Container Apps express",
+    "lang": "ja-jp"
+  }
+}
+
+### X-AUC-Request がないと 400 になる
+POST {{web}}/api/chat
+Content-Type: application/json
+
+{ "message": "要約して" }
+
+### 承認の返事(Web:Features:Approvals=true のときだけ。無効なら 404)
+POST {{web}}/api/chat/approval
+Content-Type: application/json
+Accept: text/event-stream
+X-AUC-Request: 1
+
+{
+  "threadId": "{{threadId}}",
+  "approvalRequestId": "mcpr_0001",
+  "approve": false
+}
+
+### 評価
+POST {{web}}/api/feedback
+Content-Type: application/json
+X-AUC-Request: 1
+
+{
+  "threadId": "{{threadId}}",
+  "responseId": "resp_fake_word_0001",
+  "rating": "good",
+  "comment": "表が見やすかった"
+}
+
+### 成果物のダウンロード(artifact.created の downloadUrl)。台帳にない ID は 404
+GET {{web}}/api/artifacts/art_01JCZ7A8B9C0D1E2F3G4H5J6K7

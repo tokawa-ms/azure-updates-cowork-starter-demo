@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Azure Updates Cowork</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <h1 class="app-title"><span class="brand-mark" aria-hidden="true">A</span> Azure Updates <span class="brand-light">Cowork</span></h1>
+    <div class="header-tools">
+      <label class="toggle" id="learning-toggle-label" hidden>
+        <input type="checkbox" id="learning-toggle">
+        <span>学習モード</span>
+      </label>
+      <span id="user-status" class="user-status" hidden></span>
+      <a id="signin-link" class="header-link" href="/auth/signin" hidden>サインイン</a>
+      <a id="signout-link" class="header-link" href="/auth/signout" hidden>サインアウト</a>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="site-pane" aria-label="Azure の更新情報">
+      <div class="viewer-heading">
+        <div><p class="section-label">01 / 更新情報ライブラリー</p><h2>更新を読む。次の一手をつくる。</h2></div>
+        <a class="source-link" href="https://azure.microsoft.com/updates" target="_blank" rel="noopener noreferrer">公式サイト ↗</a>
+      </div>
+      <form id="updates-search" class="viewer-search" role="search">
+        <label class="search-keyword"><span>キーワード</span><input id="updates-keyword" type="search" maxlength="100" placeholder="例: Azure AI、SQL、Storage"></label>
+        <label><span>製品</span><input id="updates-product" type="search" maxlength="100" placeholder="製品名で絞る"></label>
+        <label><span>状態</span><select id="updates-status">
+          <option value="">すべての状態</option>
+          <option value="Launched">一般提供</option>
+          <option value="In preview">プレビュー</option>
+          <option value="In development">開発中</option>
+          <option value="Retirement">廃止・退役</option>
+        </select></label>
+        <button type="submit" class="primary-button">検索</button>
+      </form>
+      <p id="updates-count" class="viewer-count" role="status">更新情報を読み込んでいます…</p>
+      <div class="viewer-body">
+        <nav class="updates-nav" aria-label="更新情報の一覧">
+          <ul id="updates-list" class="updates-list"></ul>
+          <button id="updates-retry" type="button" class="secondary-button" hidden>再読み込み</button>
+        </nav>
+        <article id="update-article" class="update-article" aria-label="選択した更新情報" tabindex="-1">
+          <p class="article-placeholder">一覧から更新情報を選んでください。選んだ記事をもとに、右のチャットで作業できます。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="chat-pane" aria-label="チャット">
+      <div class="current-page" aria-live="polite">
+        <span class="section-label">02 / この更新について作業する</span>
+        <p id="page-title" class="page-title">ページ未選択</p>
+        <p id="page-id" class="page-id" hidden></p>
+      </div>
+
+      <div class="quick-actions" role="group" aria-label="すぐ使うボタン">
+        <button type="button" class="quick-button" data-action="summarize">要約</button>
+        <button type="button" class="quick-button" data-action="word">Wordにする</button>
+        <button type="button" class="quick-button" data-action="pptx">PowerPointにする</button>
+        <button type="button" class="quick-button" data-action="related">関連する更新を探す</button>
+      </div>
+
+      <section id="plan" class="plan" aria-labelledby="plan-heading" hidden>
+        <h2 id="plan-heading" class="section-label">進行状況</h2>
+        <ol id="plan-steps" class="plan-steps"></ol>
+      </section>
+
+      <div id="messages" class="messages" role="log" aria-live="polite" aria-label="会話の履歴">
+        <p id="empty-state" class="empty-state">更新を理解するところから、資料にまとめるところまで。<br>左で記事を選び、要約や資料の作成を依頼してください。</p>
+      </div>
+
+      <form id="chat-form" class="composer" novalidate>
+        <label for="chat-input" class="visually-hidden">依頼</label>
+        <textarea id="chat-input" class="chat-input" rows="3" maxlength="2000"
+                  placeholder="依頼を入力してください(Ctrl+Enter で送信)"></textarea>
+        <div class="composer-actions">
+          <button type="button" id="new-thread" class="secondary-button">新しい会話</button>
+          <span class="spacer"></span>
+          <button type="button" id="stop-button" class="secondary-button" hidden>止める</button>
+          <button type="submit" id="send-button" class="primary-button">送信</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <section id="learning-panel" class="learning-panel" aria-labelledby="learning-heading" hidden>
+    <div class="learning-header">
+      <h2 id="learning-heading" class="section-label">学習モード: 直近の応答</h2>
+      <button type="button" id="copy-kql" class="secondary-button" disabled>KQL をコピー</button>
+      <span id="copy-kql-status" class="copy-status" role="status"></span>
+    </div>
+    <dl class="learning-ids">
+      <div><dt>トレース ID</dt><dd id="learn-trace-id">-</dd></div>
+      <div><dt>応答 ID</dt><dd id="learn-response-id">-</dd></div>
+      <div><dt>会話 ID</dt><dd id="learn-conversation-id">-</dd></div>
+      <div><dt>トークン数</dt><dd id="learn-tokens">-</dd></div>
+    </dl>
+    <pre id="learn-kql" class="kql" hidden></pre>
+    <ol id="learn-tools" class="learning-tools"></ol>
+  </section>
+</body>
+</html>

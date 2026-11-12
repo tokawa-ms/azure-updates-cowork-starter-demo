@@ -1,0 +1,18 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_bad_0001","object":"response","status":"in_progress","conversation":null}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":1,"output_index":0,"item":{"type":"function_call","id":"fc_0301","call_id":"call_word_bad","name":"create_word_report","arguments":"{}","status":"completed"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":2,"output_index":1,"item":{"type":"function_call_output","id":"fco_0301","call_id":"call_word_bad","output":"{\"ok\":true,\"artifact\":{\"artifactId\":\"art_01JCZ7C0D1E2F3G4H5J6K7M8N9\",\"fileName\":\"evil.docx\",\"contentType\":\"application/octet-stream\",\"kind\":\"docx\",\"sizeBytes\":10,\"itemCount\":1,\"storage\":\"local\",\"location\":\"../../etc/passwd\"}}"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":3,"output_index":2,"item":{"type":"function_call","id":"fc_0302","call_id":"call_word_fail","name":"create_word_report","arguments":"{}","status":"completed"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":4,"output_index":3,"item":{"type":"function_call_output","id":"fco_0302","call_id":"call_word_fail","output":"{\"ok\":false,\"error\":\"表は 10 列までです。列を減らしてください。\"}"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":5,"response":{"id":"resp_bad_0001","object":"response","status":"completed","usage":{"input_tokens":10,"output_tokens":5,"total_tokens":15}}}
+

@@ -1,0 +1,23 @@
+{
+  "version": "3.0",
+  "defaultProvider": "jsdelivr",
+  "libraries": [
+    {
+      "library": "marked@18.1.3",
+      "destination": "wwwroot/lib/marked/",
+      "files": [
+        "lib/marked.esm.js",
+        "LICENSE"
+      ]
+    },
+    {
+      "library": "dompurify@3.4.17",
+      "destination": "wwwroot/lib/dompurify/",
+      "files": [
+        "dist/purify.es.mjs",
+        "LICENSE",
+        "LICENSE-MPL"
+      ]
+    }
+  ]
+}

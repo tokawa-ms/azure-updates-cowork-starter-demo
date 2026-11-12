@@ -23,3 +23,5 @@ eval/out/
 *.log
 node_modules/
 .DS_Store
+.scratch/
+report.*.json

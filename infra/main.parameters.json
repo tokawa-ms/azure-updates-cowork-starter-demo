@@ -1,0 +1,84 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "${AZURE_ENV_NAME}"
+    },
+    "location": {
+      "value": "${AZURE_LOCATION}"
+    },
+    "principalId": {
+      "value": "${AZURE_PRINCIPAL_ID}"
+    },
+    "principalType": {
+      "value": "${AZURE_PRINCIPAL_TYPE=User}"
+    },
+    "existingAiProjectResourceId": {
+      "value": "${EXISTING_AI_PROJECT_RESOURCE_ID}"
+    },
+    "existingAppInsightsResourceId": {
+      "value": "${EXISTING_APPINSIGHTS_RESOURCE_ID}"
+    },
+    "agentModelName": {
+      "value": "${AGENT_MODEL_NAME=gpt-5.4-mini}"
+    },
+    "agentModelVersion": {
+      "value": "${AGENT_MODEL_VERSION=2026-03-17}"
+    },
+    "agentModelCapacity": {
+      "value": "${AGENT_MODEL_CAPACITY=30}"
+    },
+    "agentDeploymentName": {
+      "value": "${AGENT_DEPLOYMENT_NAME}"
+    },
+    "judgeModelName": {
+      "value": "${JUDGE_MODEL_NAME=gpt-5-mini}"
+    },
+    "judgeModelVersion": {
+      "value": "${JUDGE_MODEL_VERSION=2025-08-07}"
+    },
+    "judgeModelCapacity": {
+      "value": "${JUDGE_MODEL_CAPACITY=30}"
+    },
+    "judgeDeploymentName": {
+      "value": "${JUDGE_DEPLOYMENT_NAME}"
+    },
+    "createRaiPolicy": {
+      "value": "${CREATE_RAI_POLICY=true}"
+    },
+    "assignDeveloperFoundryRoles": {
+      "value": "${ASSIGN_DEVELOPER_FOUNDRY_ROLES=true}"
+    },
+    "allowedIpRanges": {
+      "value": "${ALLOWED_IP_RANGES=[]}"
+    },
+    "authMode": {
+      "value": "${AUTH_MODE=Anonymous}"
+    },
+    "alertEmail": {
+      "value": "${ALERT_EMAIL}"
+    },
+    "siteproxyMinReplicas": {
+      "value": "${SITEPROXY_MIN_REPLICAS=0}"
+    },
+    "enableLegacyProxy": {
+      "value": "${ENABLE_LEGACY_PROXY=false}"
+    },
+    "siteproxyMaxReplicas": {
+      "value": "${SITEPROXY_MAX_REPLICAS=3}"
+    },
+    "webExists": {
+      "value": "${SERVICE_WEB_RESOURCE_EXISTS=false}"
+    },
+    "siteproxyExists": {
+      "value": "${SERVICE_SITEPROXY_RESOURCE_EXISTS=false}"
+    },
+    "webImage": {
+      "value": "${SERVICE_WEB_IMAGE_NAME=}"
+    },
+    "siteproxyImage": {
+      "value": "${SERVICE_SITEPROXY_IMAGE_NAME=}"
+    }
+  }
+}

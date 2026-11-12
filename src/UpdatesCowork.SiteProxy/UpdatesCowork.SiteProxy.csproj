@@ -1,7 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <RootNamespace>UpdatesCowork.SiteProxy</RootNamespace>
     <AssemblyName>UpdatesCowork.SiteProxy</AssemblyName>
+    <UserSecretsId>2b77476e-b668-4d5d-b24d-903c186a6898</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Yarp.ReverseProxy" />

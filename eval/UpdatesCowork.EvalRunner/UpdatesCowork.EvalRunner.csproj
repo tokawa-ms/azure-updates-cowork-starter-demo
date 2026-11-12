@@ -10,5 +10,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\UpdatesCowork.Shared\UpdatesCowork.Shared.csproj" />
+    <ProjectReference Include="..\..\src\UpdatesCowork.Agent\UpdatesCowork.Agent.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="UpdatesCowork.Evaluation.Tests" />
   </ItemGroup>
 </Project>

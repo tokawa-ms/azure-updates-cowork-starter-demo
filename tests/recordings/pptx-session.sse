@@ -1,0 +1,18 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_pptx_0001","object":"response","status":"in_progress","conversation":{"id":"conv_pptx_0001"},"output":[],"usage":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":1,"output_index":0,"item":{"type":"function_call","id":"fc_0201","call_id":"call_deck_1","name":"create_powerpoint_deck","arguments":"","status":"in_progress"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":2,"output_index":0,"item":{"type":"function_call","id":"fc_0201","call_id":"call_deck_1","name":"create_powerpoint_deck","arguments":"{\"fileName\":\"azure-update-559242-deck\",\"title\":\"Azure Container Apps express\",\"slides\":[{\"title\":\"概要\",\"bullets\":[\"一般提供になりました\"]}]}","status":"completed"}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":3,"output_index":1,"item":{"type":"function_call_output","id":"fco_0201","call_id":"call_deck_1","output":{"ok":true,"artifact":{"artifactId":"art_01JCZ7B0C1D2E3F4G5H6J7K8M9","fileName":"azure-update-559242-deck.pptx","contentType":"application/vnd.openxmlformats-officedocument.presentationml.presentation","kind":"pptx","sizeBytes":40211,"itemCount":3,"storage":"session","location":"artifacts/art_01JCZ7B0C1D2E3F4G5H6J7K8M9/azure-update-559242-deck.pptx","sessionId":"session_test"}}}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"item_id":"msg_0201","output_index":2,"content_index":0,"delta":"PowerPoint の資料を作りました。"}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":5,"response":{"id":"resp_pptx_0001","object":"response","status":"completed","conversation":{"id":"conv_pptx_0001"},"usage":{"input_tokens":3000,"output_tokens":500,"total_tokens":3500}}}
+

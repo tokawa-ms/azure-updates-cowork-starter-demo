@@ -32,7 +32,6 @@ public static class ArtifactKinds
 
 public static class ArtifactStorages
 {
-    public const string Blob = "blob";
     public const string Local = "local";
     public const string Session = "session";
 }
@@ -82,7 +81,7 @@ public static class OfficeLimits
     public const int MaxSlides = 12;
     public const int MaxBulletsPerSlide = 6;
     public const int MaxNotesLength = 1500;
-    public const int MaxFileNameLength = 80;
+    public const int MaxFileNameLength = 60;
 
     public static IReadOnlyList<string> AllowedSourcePrefixes { get; } =
         ["https://azure.microsoft.com/", "https://learn.microsoft.com/"];

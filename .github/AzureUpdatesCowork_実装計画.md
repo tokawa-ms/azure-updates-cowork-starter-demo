@@ -88,7 +88,7 @@ P3より前にモデルを使いたい場合は、P6のうちFoundryアカウン
 
 ## P4 成果物
 
-作るもの: `UpdatesCowork.Office` (テンプレートを埋め込み、`WordReportBuilder`、`SlideDeckBuilder`、検証)、ツール`create_word_report`と`create_powerpoint_deck`、`LocalArtifactStore`、`BlobArtifactStore`、`PromptShieldClient`、スキル`word-report` (`references/outline.md`を含む)と`slide-deck`。
+作るもの: `UpdatesCowork.Office` (テンプレートを埋め込み、`WordReportBuilder`、`SlideDeckBuilder`、検証)、ツール`create_word_report`と`create_powerpoint_deck`、`LocalArtifactStore`、`SessionArtifactStore`、`PromptShieldClient`、スキル`word-report` (`references/outline.md`を含む)と`slide-deck`。
 
 ### Copilotへの依頼例
 
@@ -119,7 +119,7 @@ P3より前にモデルを使いたい場合は、P6のうちFoundryアカウン
 
 ## P6 Azureへのデプロイ
 
-作るもの: `infra/` (設計書10.1節のリソース、10.2節のパラメーターと出力)、`azure.yaml` (10.3節)、`infra/hooks/postdeploy.*`、3つのDockerfile、`.github/workflows/deploy.yml`、`TableChatRegistry`、`BlobArtifactReader`、`tools/env/load-env.*`、`tools/http/agent-remote.http`。
+作るもの: `infra/` (設計書10.1節のリソース、10.2節のパラメーターと出力)、`azure.yaml` (10.3節)、`infra/hooks/postdeploy.*`、3つのDockerfile、`.github/workflows/deploy.yml`、`InMemoryChatRegistry`、`SessionFilesArtifactReader`、`tools/env/load-env.*`、`tools/http/agent-remote.http`。
 
 ### Copilotへの依頼例
 
@@ -129,8 +129,11 @@ P3より前にモデルを使いたい場合は、P6のうちFoundryアカウン
 
 - [ ] 空のサブスクリプションで`azd up`が成功し、`WEB_URL`で画面が開く。
 - [ ] `allowedIpRanges`に自分のIPを入れると、ほかのIPからは403になる。
-- [ ] Azure上で「Wordにする」が成功し、成果物がBlobに保存され、画面からダウンロードできる。
-- [ ] エージェントIDにStorage Blob Data Contributorが付いている(フックを2回実行してもエラーにならない)。
+- [ ] Azure上で「Wordにする」が成功し、Hosted Agentのセッションファイルから画面へダウンロードできる。
+- [ ] `id-web`が自分で作成したAgentセッションのファイル取得と削除を行える。Foundry Userなど広いロールを追加しない。
+- [ ] 新しい会話で旧セッションの削除を行い、ブラウザー終了時にも削除を試みる。要求が届かない場合はFoundryの最大30日保持になることを確認する。
+- [ ] webのレプリカが1つで、プロセス再起動後にメモリー台帳とData Protectionキーが失われることを確認する。
+- [ ] 既存Storage Accountとデータが削除されず、新しいデプロイとアプリから参照されない。
 - [ ] `id-web`からFoundry Agent Consumerを外すと403になり、画面に`agent_forbidden`が出る(確かめたら戻す)。
 - [ ] `azd ai agent show`でRAIポリシーが付いていることを確かめた。
 - [ ] どこにも鍵や接続文字列の鍵がない(`git grep`とポータルで確認)。
@@ -180,7 +183,6 @@ P3より前にモデルを使いたい場合は、P6のうちFoundryアカウン
 
 ## 発展(P10以降、任意)
 
-- Session Files APIでの成果物の受け渡し(`ARTIFACTS_MODE=SessionFiles`、Q14)。
 - 利用者ごとのセッション分離(設計書7.3節、Q15)。
 - `x-agent-version-override`で2つの版を同じデータセットで比べる。
 - バックグラウンド応答(`background: true`)とポーリングで長い処理に対応する。

@@ -8,6 +8,7 @@ public static class TelemetryNames
         public const string Web = "UpdatesCowork.Web";
         public const string SiteProxy = "UpdatesCowork.SiteProxy";
         public const string Agent = "UpdatesCowork.Agent";
+        public const string McpSdk = "Experimental.ModelContextProtocol";
     }
 
     public static class Spans
@@ -15,6 +16,8 @@ public static class TelemetryNames
         public const string ChatTurn = "chat.turn";
         public const string AgentConversationCreate = "agent.conversation.create";
         public const string ArtifactDownload = "artifact.download";
+        public const string ArtifactSessionFileRead = "artifact.session_file.read";
+        public const string ArtifactSessionDelete = "artifact.session.delete";
         public const string ProxyHtmlRewrite = "proxy.html_rewrite";
         public const string AzureUpdatesGet = "azure_updates.get";
         public const string AzureUpdatesSearch = "azure_updates.search";
@@ -22,6 +25,7 @@ public static class TelemetryNames
         public const string OfficePptxBuild = "office.pptx.build";
         public const string ArtifactSave = "artifact.save";
         public const string ContentSafetyShieldPrompt = "content_safety.shield_prompt";
+        public const string McpToolExecute = "mcp.tool.execute";
     }
 
     public static class Attributes
@@ -49,6 +53,8 @@ public static class TelemetryNames
         public const string AttackDetected = "auc.attack_detected";
         public const string ClientTraceId = "auc.client_trace_id";
         public const string Outcome = "auc.outcome";
+        public const string ErrorType = "error.type";
+        public const string ToolName = "gen_ai.tool.name";
         public const string FeedbackRating = "auc.feedback.rating";
         public const string FeedbackComment = "auc.feedback.comment";
     }

@@ -15,6 +15,7 @@
     <PackageVersion Include="Azure.AI.AgentServer.Responses" Version="1.0.0-beta.9" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Microsoft.Extensions.AI" Version="10.11.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.4.0" />
   </ItemGroup>
   <ItemGroup Label="評価">
     <PackageVersion Include="Microsoft.Extensions.AI.Evaluation" Version="10.11.0" />
@@ -28,9 +29,6 @@
   <ItemGroup Label="Web とホスティング">
     <PackageVersion Include="Microsoft.OpenTelemetry" Version="1.2.0" />
     <PackageVersion Include="Yarp.ReverseProxy" Version="2.3.0" />
-    <PackageVersion Include="Azure.Storage.Blobs" Version="12.30.1" />
-    <PackageVersion Include="Azure.Data.Tables" Version="12.13.0" />
-    <PackageVersion Include="Azure.Extensions.AspNetCore.DataProtection.Blobs" Version="1.5.5" />
     <PackageVersion Include="Microsoft.Identity.Web" Version="4.18.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.14" />

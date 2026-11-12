@@ -151,7 +151,7 @@
 | Hosted AgentはEntra IDトークンだけを受け付け、CORSの記載もない | ブラウザーからは呼ばず、WebアプリのBFFがマネージドIDで呼ぶ |
 | `metadata`はエージェントに渡らない。developerロールのメッセージは保たれる | 表示中のページの情報はdeveloperメッセージで渡す。評価データでも同じ形を使う |
 | ストリームにツール呼び出しが流れる | BFFはそれを読み、進行状況と成果物のカードを画面に出す |
-| ファイルの中身はストリームで返せない | 成果物はBlobに保存し、BFFが所有者を確かめてから渡す(Session Files APIは発展課題) |
+| AgentとWebは別コンテナーで、ローカルファイルを共有できない | 成果物はHosted Agentのセッション領域に保存し、BFFが所有者を確かめてからSession Files APIで取得する |
 | C#の関数ツールの出力はガードレールの検査対象外 | 取得した本文はツールの中でPrompt Shieldsにかけ、評価でもIndirect Attackを見る |
 | ExpressはEasy Authとシステム割り当てIDが使えない | ユーザー割り当てIDを使い、公開範囲はIP制限で絞る。サインインは任意機能としてアプリに実装する |
 | Expressのタイムアウトは未記載(標準は240秒) | 1回の応答のストリームは200秒で打ち切り、15秒ごとにpingを送る |
@@ -182,7 +182,8 @@ flowchart LR
   end
   Site["azure.microsoft.com"]
   DataApi["更新情報データ API<br/>www.microsoft.com/releasecommunications"]
-  Storage["Storage<br/>Blob: 成果物 / Table: 台帳"]
+  SessionFiles["Hosted Agent session<br/>$HOME/artifacts"]
+  State["web process memory<br/>台帳 / Data Protection"]
   Monitor["Application Insights<br/>+ Log Analytics"]
 
   Shell -- "HTTPS (SSE)" --> Web
@@ -191,8 +192,9 @@ flowchart LR
   Web -- "Responses API<br/>マネージド ID" --> Agent
   Agent --> Model
   Agent -- "取得" --> DataApi
-  Agent -- "保存 (エージェント ID)" --> Storage
-  Web -- "台帳、ダウンロード" --> Storage
+  Agent -- "成果物を保存" --> SessionFiles
+  Web -- "Session Files API<br/>マネージド ID" --> SessionFiles
+  Web --> State
   Web -.-> Monitor
   Proxy -.-> Monitor
   Agent -. "自動送信" .-> Monitor
@@ -233,10 +235,10 @@ sequenceDiagram
   autonumber
   participant S as 画面
   participant B as BFF (web)
-  participant R as 台帳 (Table)
+  participant R as 台帳 (webメモリー)
   participant A as Hosted Agent
   participant D as 更新情報データ API
-  participant BL as Blob
+  participant FS as Agent session files
   S->>B: POST /api/chat {threadId, message, pageContext}
   B->>R: スレッドの持ち主を確認 (新しければ作る)
   opt 新しいスレッド
@@ -246,7 +248,7 @@ sequenceDiagram
   B->>A: POST .../openai/responses (stream, conversation, developer: page_context, user: 依頼)
   A->>A: load_skill("word-report")、update_plan
   A->>D: get_azure_update(559242)
-  A->>BL: create_word_report で .docx を保存
+  A->>FS: $HOME/artifacts に .docx を保存
   A-->>B: SSE (function_call、function_call_output、output_text.delta、completed)
   B->>R: 成果物を台帳に登録
   B-->>S: SSE (plan.updated、tool.started、artifact.created、text.delta、done)
@@ -258,12 +260,12 @@ sequenceDiagram
 sequenceDiagram
   participant S as 画面
   participant B as BFF (web)
-  participant R as 台帳 (Table)
-  participant BL as Blob
+  participant R as 台帳 (webメモリー)
+  participant FS as Agent session files
   S->>B: GET /api/artifacts/{artifactId}
   B->>R: この利用者の成果物か確認
   alt 本人のもの
-    B->>BL: 読み出し (web のマネージド ID)
+    B->>FS: Session Files APIで読み出し (web のマネージド ID)
     B-->>S: 200 (Content-Disposition: attachment)
   else それ以外
     B-->>S: 404
@@ -280,7 +282,7 @@ sequenceDiagram
 | ADR-04 | 会話はConversationsで束ねる | 会話ごとに同じセッションに入り、承認待ちや読み込んだスキルの状態が続く | セッションと会話 |
 | ADR-05 | 表示中のページの情報はdeveloperメッセージで渡す | `metadata`はエージェントに届かない。developerメッセージならトレースに残り、評価データでも同じ形を再現できる | 文脈の渡し方、評価の再現性 |
 | ADR-06 | 事実はデータAPIから取り、プロキシしたHTMLは使わない | HTMLは表示用で構造が変わりやすい。ツールの接続先を1つのホストに固定し、任意のURLを取りに行かせない | ツール設計、SSRFと間接プロンプトインジェクションへの備え |
-| ADR-07 | 成果物はOpen XML SDKで作り、Blobに置く | ファイルはストリームで返せない。Blobならセッションの期限やスナップショットの影響を受けず、エージェントIDのRBACも学べる。Session Files APIは発展課題で比べる | エージェントID、成果物の受け渡し |
+| ADR-07 | 成果物はOpen XML SDKで作り、Hosted Agentのセッションファイルに置く | Blobへの外部ネットワークアクセスが組織ポリシーで制限されている。WebはSession Files API経由で取得し、新しい会話やページ終了時に削除を試みる | セッションファイル、エージェントID、成果物の受け渡し |
 | ADR-08 | Coworkらしさを5つの部品(指示文、スキル、ツール、進行状況、成果物)と承認で表す | 部品ごとに差し替え、違いをトレースと評価で見比べられる | エージェントの組み立て方 |
 | ADR-09 | 観測はOpenTelemetryにそろえ、Application Insightsを1つ共有する | Foundryの画面とアプリのトレースを同じ場所で突き合わせられる | 観測の基本 |
 | ADR-10 | 評価はローカル、クラウド、継続の3層とCIのゲートで行う | 開発中は安く速く回し、本番は抜き取りで見続ける | 評価の使い分け |
@@ -315,7 +317,7 @@ azure-updates-cowork/
 │  │  ├─ Skills/<スキル名>/SKILL.md                             (出力フォルダーにコピー)
 │  │  ├─ Tools/ CoworkTools.cs, ToolContracts.cs
 │  │  ├─ Context/ CurrentTimeContextProvider.cs
-│  │  ├─ Artifacts/ IArtifactStore.cs, BlobArtifactStore.cs, LocalArtifactStore.cs, SessionFilesArtifactStore.cs
+│  │  ├─ Artifacts/ IArtifactStore.cs, LocalArtifactStore.cs, SessionArtifactStore.cs
 │  │  ├─ Safety/ PromptShieldClient.cs, UntrustedText.cs
 │  │  ├─ Telemetry/ AgentTelemetry.cs, ToolCallMiddleware.cs
 │  │  └─ Dockerfile
@@ -324,8 +326,8 @@ azure-updates-cowork/
 │  │  ├─ Endpoints/ ChatEndpoints.cs, ArtifactEndpoints.cs, FeedbackEndpoints.cs, ConfigEndpoints.cs
 │  │  ├─ AgentGateway/ IAgentGateway.cs, ResponsesAgentGateway.cs, AgentStreamEvent.cs, AgentRequestBuilder.cs, BearerTokenHandler.cs
 │  │  ├─ Chat/ ChatOrchestrator.cs, ChatEventMapper.cs, PageContextValidator.cs
-│  │  ├─ Registry/ IChatRegistry.cs, TableChatRegistry.cs, InMemoryChatRegistry.cs
-│  │  ├─ Artifacts/ IArtifactReader.cs, BlobArtifactReader.cs, LocalArtifactReader.cs, SessionFilesArtifactReader.cs
+│  │  ├─ Registry/ IChatRegistry.cs, InMemoryChatRegistry.cs
+│  │  ├─ Artifacts/ IArtifactReader.cs, LocalArtifactReader.cs, SessionFilesArtifactReader.cs
 │  │  ├─ Identity/ ICurrentUser.cs, AnonymousUserMiddleware.cs
 │  │  ├─ Telemetry/ WebTelemetry.cs
 │  │  ├─ wwwroot/ index.html, css/app.css, js/app.js, js/sse.js, js/render.js, lib/ (marked、DOMPurify)
@@ -392,7 +394,6 @@ azure-updates-cowork/
 | DocumentFormat.OpenXml | 3.5.1 | Office | MITライセンス |
 | Microsoft.OpenTelemetry | 実装時の最新安定版 | Web、SiteProxy、Agent | Azure MonitorとOTLPに送る |
 | Yarp.ReverseProxy | 実装時の最新安定版 | SiteProxy | |
-| Azure.Storage.Blobs、Azure.Data.Tables | 実装時の最新安定版 | Agent、Web | |
 | Microsoft.Extensions.Http.Resilience | 実装時の最新安定版 | AzureUpdates | 再試行とタイムアウト |
 | AngleSharp | 実装時の最新安定版 | AzureUpdates | 説明文のHTMLをテキストにする |
 | Microsoft.Identity.Web | 実装時の最新安定版 | Web (任意) | Entra IDサインインを使う場合だけ |
@@ -610,28 +611,30 @@ public interface IChatRegistry
     Task<ChatThread> CreateThreadAsync(string userKey, CancellationToken ct);
     Task<ChatThread?> GetThreadAsync(string userKey, string threadId, CancellationToken ct);
     Task UpdateThreadAsync(ChatThread thread, CancellationToken ct);
+    Task<ChatThread?> DeleteThreadAsync(string userKey, string threadId, CancellationToken ct);
     Task AddArtifactAsync(string userKey, ArtifactRecord artifact, CancellationToken ct);
     Task<ArtifactRecord?> GetArtifactAsync(string userKey, string artifactId, CancellationToken ct);
 }
 ```
 
-- Azureでは`TableChatRegistry` (Azure Table Storage、テーブル名`auc`)。ローカルの既定は`InMemoryChatRegistry`。
-- 行の形は6.6節。`PartitionKey`を利用者キーにするので、他人の行は検索の対象にもならない。
+- Azureとローカルの既定は`InMemoryChatRegistry`。プロセス終了で台帳は消える。Azureではwebのレプリカを1つに固定する。
+- 利用者キーをキーに含めるため、別利用者のスレッドや成果物は取得できない。スレッド削除時に成果物レコードも削除する。
 
 #### 成果物の読み出し(IArtifactReader)
 
 | 実装 | 使う場面 | 読み出し方 |
 |---|---|---|
-| `BlobArtifactReader` | Azureの既定 | 台帳の`location` (Blob名)を`artifacts`コンテナーから読む |
 | `LocalArtifactReader` | ローカル | `Artifacts:LocalDir`以下のファイルを読む(エージェントと同じフォルダーを指す) |
-| `SessionFilesArtifactReader` | 発展課題 | `GET {BaseUrl の手前}/agents/{name}/endpoint/sessions/{sessionId}/files/content?api-version=v1&path={location}` |
+| `SessionFilesArtifactReader` | Azureの既定 | `GET {Agent:BaseUrl から /protocols/openai を除いたURL}/sessions/{sessionId}/files/content?api-version=v1&path={location}` |
 
 ダウンロードの応答には`X-Content-Type-Options: nosniff`を付け、ファイル名はRFC 5987の形(`filename*=UTF-8''...`)で返す(`Results.Stream`の`fileDownloadName`を使う)。
+
+`POST /api/threads/end`は、スレッドの持ち主を確認してFoundryのセッションを削除してから、メモリー上のスレッドと成果物を消す。新しい会話の開始時に呼び、ページ終了時にも`keepalive`付きで削除を試みる。タブ終了時の要求は best effort であり、未削除のセッションとファイルはFoundryの有効期限(最大30日)まで残ることがある。Hosted Agentのセッション領域は`$HOME`配下で、ファイルの上限は50 MB。
 
 #### 利用者の識別(ICurrentUser)
 
 - 既定は匿名モード。初回アクセスで32バイトの乱数を`auc_uid` Cookie (HttpOnly、Secure、SameSite=Lax、30日)に入れる。利用者キーはCookie値のSHA-256の先頭32文字(16進)にし、Cookieの値そのものは保存しない。
-- 任意のEntra IDモード(`Auth:Mode=EntraId`)では`Microsoft.Identity.Web`でサインインさせ、利用者キーは`tid`と`oid`を連結したSHA-256にする。ExpressにはEasy Authがないため、アプリ内で実装する。Data ProtectionのキーはBlob (`dataprotection`コンテナー)に保存する。
+- 任意のEntra IDモード(`Auth:Mode=EntraId`)では`Microsoft.Identity.Web`でサインインさせ、利用者キーは`tid`と`oid`を連結したSHA-256にする。ExpressにはEasy Authがないため、アプリ内で実装する。Data Protectionのキーはプロセス内だけで保持し、再起動後のCookie再利用はできない。
 
 #### 保護
 
@@ -713,8 +716,8 @@ app.Run();
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | azure.yaml | `gpt-5.4-mini` | 使うモデル |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | プラットフォーム | | トレースの送り先 |
 | `FOUNDRY_AGENT_NAME`、`FOUNDRY_AGENT_VERSION`、`FOUNDRY_AGENT_SESSION_ID` | プラットフォーム | | スパンの属性に記録 |
-| `ARTIFACTS_MODE` | azure.yaml | `Blob` / `Local` / `SessionFiles` | 成果物の置き場所 |
-| `ARTIFACTS_BLOB_ENDPOINT`、`ARTIFACTS_CONTAINER` | azure.yaml | `https://<sa>.blob.core.windows.net`、`artifacts` | |
+| `ARTIFACTS_MODE` | azure.yaml | `SessionFiles` / `Local` | 成果物の置き場所 |
+| `HOME` | Hosted Agent | セッションのホームディレクトリ | `SessionFiles`モードで成果物を保存するルート |
 | `ARTIFACTS_LOCAL_DIR` | ローカル | `../../.artifacts` | |
 | `AZURE_UPDATES_API_BASE` | 既定値あり | `https://www.microsoft.com/releasecommunications/api/v2/azure` | |
 | `AZURE_UPDATES_FIXTURES_DIR` | テストと評価 | `eval/fixtures/updates` | 指定するとネットワークを使わず固定データを返す |
@@ -840,13 +843,11 @@ public interface IArtifactStore
 
 | 実装 | 保存先 | `location`の例 |
 |---|---|---|
-| `BlobArtifactStore` (Azureの既定) | `artifacts`コンテナー。エージェントIDで書き込む | `2026/11/11/art_01JC.../azure-update-559242.docx` |
-| `LocalArtifactStore` (ローカル) | `ARTIFACTS_LOCAL_DIR` | 同じ形の相対パス |
-| `SessionFilesArtifactStore` (発展課題) | セッションの`$HOME/artifacts/...` | `artifacts/art_01JC.../azure-update-559242.docx` |
+| `SessionArtifactStore` (Azureの既定) | Hosted Agentセッションの`$HOME/artifacts/...` | `artifacts/art_01JC.../azure-update-559242.docx` |
+| `LocalArtifactStore` (ローカル) | `ARTIFACTS_LOCAL_DIR` | `yyyy/MM/dd/art_.../azure-update-559242.docx` |
 
 - 成果物IDは`art_` + ULIDとする。ファイル名は英数字とハイフンだけにし(60文字まで)、拡張子はツール側で付ける。
-- Blobのメタデータに`kind`、`agentVersion` (`FOUNDRY_AGENT_VERSION`)、`sessionId`を入れる(ASCIIだけ)。上書きはしない。
-- ストレージアカウントのライフサイクル管理で、7日たった成果物を消す(10章)。
+- 上書きはしない。成果物ID、相対パス、セッションIDをツール結果として返す。Webは成果物を利用者キーに結び付けた台帳へ登録してからダウンロードを許可する。
 
 #### Prompt Shieldsによる取得本文の検査
 
@@ -1171,14 +1172,13 @@ x-client-thread-id: th_01JCZ6V3S1Y4M5K8Q2W7E9R0TA
 }
 ```
 
-### 6.6 台帳(Azure Table Storage、テーブル`auc`)
+### 6.6 台帳(プロセスメモリー)
 
-| 種類 | PartitionKey | RowKey | 主な列 |
-|---|---|---|---|
-| スレッド | 利用者キー | `thread:{threadId}` | `ConversationId`、`LastResponseId`、`CreatedUtc`、`UpdatedUtc` |
-| 成果物 | 利用者キー | `artifact:{artifactId}` | `ThreadId`、`FileName`、`ContentType`、`Kind`、`SizeBytes`、`Storage`、`Location`、`SessionId`、`CreatedUtc` |
+`InMemoryChatRegistry`はスレッドを`(UserKey, ThreadId)`、成果物を`(UserKey, ArtifactId)`で管理する。スレッドには`ConversationId`、`LastResponseId`、Hosted Agentの`SessionId`を持たせ、成果物には`ThreadId`、ファイル名、種類、サイズ、`Storage`、`Location`、`SessionId`を持たせる。
 
-BFFは`location`を受け取ったら、`Storage`ごとの形式(Blob名は`yyyy/MM/dd/art_.../ファイル名`、セッションのパスは`artifacts/art_.../ファイル名`)に合うかを正規表現で確かめてから登録する。
+BFFは成果物を登録するときと読み出すときに、`location`が`artifacts/art_<ULID>/<filename>`の形式かを検証する。ダウンロードは利用者キーで台帳を検索して所有者を確認した後にだけ、Session Files APIを呼ぶ。スレッド削除では同じスレッドの成果物レコードも削除する。
+
+Azureではwebの最小／最大レプリカをともに1に固定する。台帳とData Protectionキーはプロセス内だけにあるため、Container Appの再起動やリビジョン入れ替えで消え、暗号化Cookieも無効になる。Foundryのセッションファイルは別管理であり、明示的な削除が届かなかった場合は最大30日残り得る。
 
 ## 7. ID、権限、セキュリティ
 
@@ -1192,19 +1192,15 @@ BFFは`location`を受け取ったら、`Storage`ごとの形式(Blob名は`yyyy
 
 | 主体 | 種類 | ロール(ID) | スコープ | 用途 |
 |---|---|---|---|---|
-| `id-web` | ユーザー割り当てMI | Foundry Agent Consumer (`eed3b665-ab3a-47b6-8f48-c9382fb1dad6`) | Foundryプロジェクト | 会話の作成とエージェントの呼び出し |
-| `id-web` | 同上 | Storage Blob Data Reader (`2a2b9908-6ea1-4ae2-8e65-a410df84e7d1`) | `artifacts`コンテナー | 成果物の読み出し |
-| `id-web` | 同上 | Storage Table Data Contributor (`0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3`) | ストレージアカウント | 台帳 |
+| `id-web` | ユーザー割り当てMI | Foundry Agent Consumer (`eed3b665-ab3a-47b6-8f48-c9382fb1dad6`) | Foundryプロジェクト | エージェントの呼び出しと、同じIDが作成したセッションファイルの取得・削除 |
 | `id-web` | 同上 | AcrPull (`7f951dda-4ed3-4680-a7ca-43fe172d538d`) | ACR | イメージの取得 |
 | `id-proxy` | ユーザー割り当てMI | AcrPull | ACR | イメージの取得 |
-| エージェントID | Foundryが作るEntra ID | Storage Blob Data Contributor (`ba92f5b4-2d11-453d-a403-e96b0029c9fe`) | `artifacts`コンテナー | 成果物の保存(デプロイ後のフックで付与) |
 | エージェントID | 同上 | Cognitive Services User (`a97b65f3-24c7-4388-baec-2e87135dc908`) | Foundryアカウント | Prompt Shields |
 | プロジェクトのMI | システム割り当て | AcrPull (ACRがABACのリポジトリ権限を使う場合はContainer Registry Repository Reader) | ACR | エージェントのイメージの取得 |
 | プロジェクトのMI | 同上 | Foundry User (`53ca6127-db72-4b80-b1b0-d745d6d5456d`) | プロジェクト | 継続評価のルール |
 | プロジェクトのMI | 同上 | Reader (`acdd72a7-3385-48ef-bd42-f606fba81ae7`) | Application Insights | トレースを使う評価 |
 | 開発者(`principalId`) | ユーザー | Foundry Project Manager (`eadc314b-1a2d-4efa-be10-5d325db5065e`) | プロジェクト | エージェントのデプロイ |
 | 開発者 | 同上 | Foundry User | プロジェクト | ローカル実行でのモデル呼び出し、評価 |
-| 開発者 | 同上 | Storage Blob Data Contributor、Storage Table Data Contributor | ストレージアカウント | ローカル実行 |
 | 開発者 | 同上 | Log Analytics Reader (`73c42c96-874c-492b-b04d-ab87d138a893`) | Application Insights | トレースの閲覧 |
 | GitHub Actions | ワークロードIDフェデレーション | ContributorとRole Based Access Control Administrator (リソースグループ)、Foundry Project Manager (プロジェクト) | | CDと評価 |
 
@@ -1278,6 +1274,7 @@ ActivitySourceとメーターの名前: `UpdatesCowork.Web`、`UpdatesCowork.Sit
 | `chat.turn` | web | `auc.thread_id`、`gen_ai.conversation.id`、`gen_ai.response.id`、`auc.page.update_id`、`auc.action`、`auc.user_key`、`auc.ttft_ms`、`auc.events` |
 | `agent.conversation.create` | web | `gen_ai.conversation.id` |
 | `artifact.download` | web | `auc.artifact.id`、`auc.artifact.kind` |
+| `artifact.session_file.read`、`artifact.session.delete` | web | `auc.artifact.storage` (readのみ) |
 | `proxy.html_rewrite` | siteproxy | `url.path`、`auc.bytes_in`、`auc.bytes_out`、`auc.bridge_injected` |
 | `azure_updates.get`、`azure_updates.search` | agent | `auc.update.id`、`auc.cache_hit`、`auc.items` |
 | `office.word.build`、`office.pptx.build` | agent | `auc.items`、`auc.validation_errors`、`auc.bytes` |
@@ -1538,13 +1535,14 @@ var rule = new EvaluationRule(action: action, eventType: EvaluationRuleEventType
 | Application Insightsの接続 | `.../accounts/projects/connections` (category `AppInsights`) | `appinsights` | Hosted Agentに接続文字列が注入される条件[要確認: プロパティの形] |
 | RAIポリシー | `.../accounts/raiPolicies` | `auc-agent-guardrail` | 基準`Microsoft.DefaultV2`、JailbreakとIndirect Attackを有効[要確認: プロパティの形] |
 | Container Registry | `Microsoft.ContainerRegistry/registries` | `cr<env><suffix>` | Basic、管理者ユーザー無効、`policies.azureADAuthenticationAsArmPolicy.status: 'enabled'` |
-| ストレージアカウント | `Microsoft.Storage/storageAccounts` | `st<env><suffix>` | `allowSharedKeyAccess: false`、`allowBlobPublicAccess: false`、TLS 1.2、Blobコンテナー`artifacts`と`dataprotection`、テーブル`auc`、ライフサイクル規則(`artifacts/`を7日で削除) |
 | ユーザー割り当てID | `Microsoft.ManagedIdentity/userAssignedIdentities` | `id-web-<env>`、`id-proxy-<env>` | |
 | Express環境 | `Microsoft.App/managedEnvironments@2026-07-01` | `cae-<env>` | `environmentMode: 'Express'`、ログはLog Analytics |
 | Container Apps | `Microsoft.App/containerApps@2026-07-01` | `ca-web-<env>`、`ca-proxy-<env>` | 下の10.2 |
 | 検索アラート(任意) | `Microsoft.Insights/scheduledQueryRules` | | 8.7節 |
 
 既定のリージョンは`japaneast`。Hosted Agent、Express、使うモデルが同じリージョンで使えることを`azd provision`の前に確かめる。
+
+この構成ではStorage Accountを新規作成せず、WebもBlob/Tableに接続しない。既存のStorage Accountとデータは削除せず、アプリの依存対象から外す。`infra/modules/storage.bicep`は既存環境の保全のため残すが、`main.bicep`から呼び出さず、ネットワーク公開も無効にしている。
 
 ### 10.2 Bicepの要点
 
@@ -1633,10 +1631,11 @@ webの環境変数は次のとおり。
 |---|---|
 | `Agent__Mode` | `Foundry` |
 | `Agent__BaseUrl` | `${projectEndpoint}/agents/${agentName}/endpoint/protocols/openai` |
-| `Registry__Mode` / `Registry__TableEndpoint` | `Table` / `https://<st>.table.core.windows.net` |
-| `Artifacts__Mode` / `Artifacts__BlobEndpoint` / `Artifacts__Container` | `Blob` / `https://<st>.blob.core.windows.net` / `artifacts` |
+| `Artifacts__Mode` | `SessionFiles` |
 | `Web__SiteProxyOrigin` / `Web__StartPath` | siteproxyのURL / `/ja-jp/updates/` |
 | `Auth__Mode` | `Anonymous` |
+
+webは最小／最大レプリカをともに1に固定する。台帳とData Protectionキーはプロセスメモリーだけにあるため、再起動で失われる。
 
 siteproxyの環境変数: `SiteProxy__AllowedParentOrigins__0`にwebのURL。
 
@@ -1679,9 +1678,7 @@ services:
         raiPolicyName: ${AZURE_AI_RAI_POLICY_ID}
     environmentVariables:
       AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
-      ARTIFACTS_MODE: Blob
-      ARTIFACTS_BLOB_ENDPOINT: ${ARTIFACTS_BLOB_ENDPOINT}
-      ARTIFACTS_CONTAINER: artifacts
+      ARTIFACTS_MODE: SessionFiles
       CONTENT_SAFETY_ENDPOINT: ${AZURE_AI_ACCOUNT_ENDPOINT}
       PROMPT_SHIELDS_MODE: Annotate
       REQUIRE_APPROVAL_FOR_ARTIFACTS: "false"
@@ -1708,9 +1705,9 @@ hooks:
 - 環境変数のキー名(`environmentVariables`か`env`か)と、コンテナーモードの`language` (`docker`か`csharp`)。
 - `policies`の`raiPolicyName`にリソースIDを渡す形。
 
-B案(A案が通らない場合): FoundryまわりをazdのFoundry用レイヤー(`azd ai agent init --infra=bicep`で作るもの)に分け、ルートのBicepはそれ以外(監視、ストレージ、Express、ID、ロール)を受け持つ。`infra.layers`で`provider: microsoft.foundry`のレイヤーを1つだけ置く。どちらの案にしたかを`docs/notes/deploy.md`に書く。
+B案(A案が通らない場合): FoundryまわりをazdのFoundry用レイヤー(`azd ai agent init --infra=bicep`で作るもの)に分け、ルートのBicepはそれ以外(監視、Express、ID、ロール)を受け持つ。`infra.layers`で`provider: microsoft.foundry`のレイヤーを1つだけ置く。どちらの案にしたかを`docs/notes/deploy.md`に書く。
 
-Bicepの出力(azdの環境変数になる): `AZURE_AI_PROJECT_ID`、`AZURE_AI_PROJECT_ENDPOINT`、`FOUNDRY_PROJECT_ENDPOINT`、`AZURE_AI_ACCOUNT_NAME`、`AZURE_AI_ACCOUNT_ID`、`AZURE_AI_ACCOUNT_ENDPOINT`、`AZURE_AI_PROJECT_NAME`、`AZURE_AI_MODEL_DEPLOYMENT_NAME`、`AZURE_AI_JUDGE_DEPLOYMENT_NAME`、`AZURE_AI_RAI_POLICY_ID`、`AZURE_CONTAINER_REGISTRY_ENDPOINT`、`ARTIFACTS_BLOB_ENDPOINT`、`ARTIFACTS_CONTAINER_ID`、`CHAT_TABLE_ENDPOINT`、`APPLICATIONINSIGHTS_CONNECTION_STRING`、`APPLICATIONINSIGHTS_ID`、`WEB_URL`、`SITEPROXY_URL`。プロジェクトのエンドポイントは`project.properties.endpoints['AI Foundry API']`で取る。
+Bicepの出力(azdの環境変数になる): `AZURE_AI_PROJECT_ID`、`AZURE_AI_PROJECT_ENDPOINT`、`FOUNDRY_PROJECT_ENDPOINT`、`AZURE_AI_ACCOUNT_NAME`、`AZURE_AI_ACCOUNT_ID`、`AZURE_AI_ACCOUNT_ENDPOINT`、`AZURE_AI_PROJECT_NAME`、`AZURE_AI_MODEL_DEPLOYMENT_NAME`、`AZURE_AI_JUDGE_DEPLOYMENT_NAME`、`AZURE_AI_RAI_POLICY_ID`、`AZURE_CONTAINER_REGISTRY_ENDPOINT`、`APPLICATIONINSIGHTS_CONNECTION_STRING`、`APPLICATIONINSIGHTS_ID`、`WEB_URL`、`SITEPROXY_URL`。プロジェクトのエンドポイントは`project.properties.endpoints['AI Foundry API']`で取る。
 
 ### 10.4 フック
 
@@ -1723,8 +1720,6 @@ PRINCIPAL_ID=$(az rest --method get --resource "https://ai.azure.com" \
   --url "${FOUNDRY_PROJECT_ENDPOINT}/agents/updates-cowork?api-version=v1" \
   --query "instance_identity.principal_id" -o tsv)
 
-az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
-  --role "Storage Blob Data Contributor" --scope "$ARTIFACTS_CONTAINER_ID" --only-show-errors
 az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
   --role "Cognitive Services User" --scope "$AZURE_AI_ACCOUNT_ID" --only-show-errors
 
@@ -1765,10 +1760,10 @@ echo "web: ${WEB_URL}"
 | 1 | 他のサイトを安全に見せる | siteproxyの応答ヘッダーの書き換え、bridge.jsからのpostMessage、オリジンを分けない場合に何ができてしまうか |
 | 2 | エージェントをローカルで動かす | localhost:8088への`.http`の要求、`execute_tool`のスパン、固定データとの切り替え |
 | 3 | Coworkもどきにする | スキルの読み込み、`update_plan`と画面の進行状況、WordとPowerPointの生成と検証、承認機能 |
-| 4 | Foundryにデプロイしてサイトに組み込む | `azd up`、エージェントIDへのロール付与、BFFからマネージドIDでの呼び出し、会話の続き、Foundry Agent Consumerを外したときの403 |
+| 4 | Foundryにデプロイしてサイトに組み込む | `azd up`、エージェントIDへのロール付与、BFFからマネージドIDでの呼び出し、会話の続き、Session Files経由の成果物取得と削除、Foundry Agent Consumerを外したときの403 |
 | 5 | 観測する | Aspire Dashboard、Application InsightsのTransaction search、FoundryのTracesとMonitor、付録DのKQL、利用者の評価との結合 |
 | 6 | 評価する | ローカル評価のレポート、クラウド評価の結果、しきい値でCIが落ちる様子、継続評価の有効化 |
-| 7 | 発展 | 利用者ごとのセッション分離、Session Files APIでの成果物の受け渡し、`x-agent-version-override`での版の比較、Prompt Shieldsの`Block`モード、レッドチーミング |
+| 7 | 発展 | 利用者ごとのセッション分離、`x-agent-version-override`での版の比較、Prompt Shieldsの`Block`モード、レッドチーミング |
 
 1.2節の学習ゴールとの対応は次のとおり。Aはラボ1、2、4、Bはラボ3、Cはラボ5、6で扱う。
 
@@ -1813,7 +1808,7 @@ echo "web: ${WEB_URL}"
 | Q11 | Hosted Agentでの継続評価の動き | Monitorタブに結果が出るまでの時間を見る | P8 |
 | Q12 | 組み込みの評価器(.NET)に渡す追加文脈の型 | パッケージのAPI | P8 |
 | Q13 | Prompt Shieldsの最新api-version | Content SafetyのRESTリファレンス | P4 |
-| Q14 | Session Files APIをFoundry Agent Consumerだけで呼べるか | 403になるかを試す | 発展 |
+| Q14 | `id-web`が自分で作成したHosted Agentセッションのファイルを管理できるか | Microsoft Learnは通常の呼び出し元を自身のセッションに限定し、全利用者のセッション操作にはFoundry Userを要求している。デプロイ後にFoundry Agent ConsumerだけでGET/DELETEできることを確認する | P6 |
 | Q15 | 利用者のID委任に使うデータアクションの正確な名前 | 組み込みロールの定義とドキュメント | 発展 |
 
 ## 15. 参考資料
@@ -1823,6 +1818,7 @@ URLを書いたものは調査で中身を確かめた資料。URLのないも�
 ### Foundry Hosted AgentとMAF
 
 - Host Microsoft Agent Framework agents as Foundry hosted agents: https://learn.microsoft.com/en-us/azure/foundry/how-to/develop/framework-hosted-agents
+- Manage hosted agent sessions and session files: https://learn.microsoft.com/azure/foundry/agents/how-to/manage-hosted-sessions
 - Foundry Hosted Agents (Agent Framework): https://learn.microsoft.com/en-us/agent-framework/hosting/foundry-hosted-agent
 - Microsoft Foundry Agent Service (Agent Frameworkの接続): https://learn.microsoft.com/en-us/agent-framework/integrations/by-component/agent-services/foundry
 - Limits, quotas, and regions: https://learn.microsoft.com/azure/foundry/agents/concepts/limits-quotas-regions

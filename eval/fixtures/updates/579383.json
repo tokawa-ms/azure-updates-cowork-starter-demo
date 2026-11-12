@@ -1,0 +1,30 @@
+{
+  "id": "579383",
+  "productCategories": [
+    "Networking",
+    "Security"
+  ],
+  "tags": [
+    "Features",
+    "Services"
+  ],
+  "products": [
+    "Azure Front Door"
+  ],
+  "generalAvailabilityDate": null,
+  "previewAvailabilityDate": "2026-11",
+  "privatePreviewAvailabilityDate": null,
+  "title": "Public Preview: Azure Front Door adds native gRPC support ",
+  "description": "<p>Announcing the public preview of gRPC support in Azure Front\nDoor.&nbsp;</p>Build and deliver gRPC applications through\nAzure Front Door Standard and Premium. Now in preview, gRPC support lets you\nroute calls to specific services and methods, distribute traffic across healthy\norigins, and use supported Azure Front Door security and routing capabilities. gRPC\nis supported over HTTP/2 and HTTPS from the client through Azure Front Door to\nthe origin, including unary and streaming RPCs. You can also configure gRPC\nhealth probes to load balance traffic to healthy origins.<br><br><a href=\"https://aka.ms/afdgrpc\">Learn more</a>.",
+  "status": "In preview",
+  "created": "2026-11-10T18:55:53.5128625Z",
+  "modified": "2026-11-10T18:55:53.5128625Z",
+  "locale": null,
+  "availabilities": [
+    {
+      "ring": "Preview",
+      "year": 2026,
+      "month": "November"
+    }
+  ]
+}
