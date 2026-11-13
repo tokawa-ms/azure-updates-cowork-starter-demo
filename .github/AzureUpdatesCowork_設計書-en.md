@@ -59,7 +59,7 @@ The aim is that people who read and run this sample can explain the following. T
 - Explain why the browser does not call the agent directly (per-user tokens, CORS, usage control).
 - Explain how another site is displayed through a reverse proxy and how information about the displayed page is passed to the agent, and why origins are separated in that case.
 
-**B. How to build a Cowork look-alike**
+**B. Building an agent-based work-assistance application**
 
 - Assemble an agent from five parts: instructions, skills (SKILL.md), tools, progress, and artifacts.
 - Obtain facts from official data via tools, and build it so that it does not follow instructions written in the screen's HTML or in fetched bodies.
@@ -285,7 +285,7 @@ sequenceDiagram
 | ADR-05 | Information about the displayed page is passed in a developer message | `metadata` does not reach the agent. A developer message remains in traces, and the same shape can be reproduced in evaluation data | How to pass context, evaluation reproducibility |
 | ADR-06 | Facts are taken from the data API; proxied HTML is not used | HTML is for display and its structure changes easily. The tool's destination is fixed to a single host, and it is never made to fetch arbitrary URLs | Tool design, defenses against SSRF and indirect prompt injection |
 | ADR-07 | Artifacts are created with the Open XML SDK and placed in the Hosted Agent's session files | External network access to Blob is restricted by organizational policy. Web retrieves them via the Session Files API and attempts deletion on a new conversation or when the page closes | Session files, agent identity, artifact handover |
-| ADR-08 | Cowork-likeness is expressed with five parts (instructions, skills, tools, progress, artifacts) plus approval | Each part can be swapped and the differences compared in traces and evaluations | How to assemble an agent |
+| ADR-08 | The work-assistance capability is implemented with five components (instructions, skills, tools, progress, and artifacts) plus approval | Each part can be swapped and the differences compared in traces and evaluations | How to assemble an agent |
 | ADR-09 | Observability is unified on OpenTelemetry, sharing one Application Insights | Foundry screens and app traces can be correlated in the same place | Observability basics |
 | ADR-10 | Evaluation is done in three layers (local, cloud, continuous) plus a CI gate | Run cheaply and quickly during development, and keep watching production by sampling | Choosing between kinds of evaluation |
 | ADR-11 | Fit Express constraints (user-assigned identity, IP restrictions, optional in-app sign-in) | Easy Auth and custom domains are not available | Characteristics of Express |
@@ -661,9 +661,9 @@ TokenCredential credential = string.IsNullOrEmpty(configuration["AZURE_CLIENT_ID
 
 Because Express can only use user-assigned identities, put that identity's client ID in the Container Apps environment variable `AZURE_CLIENT_ID`.
 
-### 5.3 agent (Hosted Agent: the Cowork look-alike)
+### 5.3 agent (Hosted Agent: work-assistance agent)
 
-#### Five parts that create Cowork-likeness
+#### Five components of the work-assistance agent
 
 | Part | Form in this sample | Location | What to look at while learning |
 |---|---|---|---|
@@ -1775,7 +1775,7 @@ Write the following seven labs in `docs/labs/` (P9). Each lab has four sections:
 |---|---|---|
 | 1 | Showing another site safely | Rewriting siteproxy's response headers, postMessage from bridge.js, and what becomes possible if origins are not separated |
 | 2 | Running the agent locally | `.http` requests to localhost:8088, `execute_tool` spans, switching to fixed data |
-| 3 | Turning it into a Cowork look-alike | Loading skills, `update_plan` and the on-screen progress, generating and validating Word and PowerPoint, the approval feature |
+| 3 | Building the work-assistance agent | Loading skills, `update_plan` and the on-screen progress, generating and validating Word and PowerPoint, the approval feature |
 | 4 | Deploying to Foundry and embedding in the site | `azd up`, assigning roles to the agent identity, calling from the BFF with a managed identity, continuing conversations, retrieving and deleting artifacts via Session Files, the 403 when Foundry Agent Consumer is removed |
 | 5 | Observing | Aspire Dashboard, Application Insights Transaction search, Foundry Traces and Monitor, the KQL in Appendix D, joining with user ratings |
 | 6 | Evaluating | The local evaluation report, cloud evaluation results, CI failing on thresholds, enabling continuous evaluation |

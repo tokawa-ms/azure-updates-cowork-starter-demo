@@ -2,7 +2,7 @@
 
 # Azure Updates Cowork Design Document
 
-- Version: 1.1 (2026-11-12, reflects the changes to a dedicated viewer, MCP, and fixed-data evaluation)
+- Version: 1.2 (2026-11-13, removes former proxy design details to reflect the current architecture)
 - Audience: GitHub Copilot (agent mode, coding agent) and developers learning Azure with this sample
 - Related files: `docs/implementation-plan.md` (implementation phases and acceptance criteria; English: [implementation-plan-en.md](implementation-plan-en.md)), `.github/copilot-instructions.md` (rules Copilot always follows)
 
@@ -27,7 +27,7 @@ Product names are referred to as follows: Microsoft Foundry (formerly Azure AI F
 
 "Azure Updates Cowork" is a learning web app that shows Azure updates in a dedicated viewer on the left side of the screen, and lets you ask questions about the selected update or turn a summary into a Word or PowerPoint file through the chat on the right side. The chat partner is a C# agent running as a Microsoft Foundry Hosted Agent, and the web app runs in an Azure Container Apps Express environment.
 
-At the user's request, this replaced the former reverse-proxy configuration. The current configuration does not use an iframe and calls business functions through a private MCP server inside the same container. Evaluation uses a separate Agent and fixed data. The former proxy in section 5.1 is a record kept for comparison and recovery, and is not part of the current normal path.
+Business functions are called through a private MCP server inside the same container, and evaluation uses a separate Agent with fixed data.
 
 ```text
 +----------------------------------------------------------------------------------+
@@ -61,7 +61,7 @@ The aim is that people who read and run this sample can explain the following. T
 - Explain why the browser does not call the agent directly (per-user tokens, CORS, usage control).
 - Build a dedicated viewer from the data API, display sanitized bodies, and connect only the selected update ID to the agent's fetch processing.
 
-**B. How to build a Cowork look-alike**
+**B. Building an agent-based work-assistance application**
 
 - Assemble an agent from five parts: instructions, skills (SKILL.md), tools, progress, and artifacts.
 - Obtain facts from official data via tools, and build it so that it does not follow instructions written in the screen's HTML or in fetched bodies.
@@ -79,7 +79,6 @@ The aim is that people who read and run this sample can explain the following. T
 
 - SLAs for production operation, multi-region configurations, and network isolation with VNets.
 - Publishing to Microsoft 365 Copilot or Teams.
-- Proxying arbitrary sites. The upstream is fixed to the Azure updates site.
 - Operations that write externally, such as sending email.
 ## 2. Underlying facts (research results as of 2026-11-11)
 
@@ -289,7 +288,7 @@ sequenceDiagram
 | ADR-05 | Information about the displayed page is passed in a developer message | `metadata` does not reach the agent. A developer message remains in traces, and the same shape can be reproduced in evaluation data | How to pass context, evaluation reproducibility |
 | ADR-06 | Facts are taken from the data API; proxied HTML is not used | HTML is for display and its structure changes easily. The tool's destination is fixed to a single host, and it is never made to fetch arbitrary URLs | Tool design, defenses against SSRF and indirect prompt injection |
 | ADR-07 | Artifacts are created with the Open XML SDK and placed in the Hosted Agent's session files | External network access to Blob is restricted by organizational policy. Web retrieves them via the Session Files API and attempts deletion on a new conversation or when the page closes | Session files, agent identity, artifact handover |
-| ADR-08 | Cowork-likeness is expressed with five parts (instructions, skills, tools, progress, artifacts) plus approval | Each part can be swapped and the differences compared in traces and evaluations | How to assemble an agent |
+| ADR-08 | The work-assistance capability is implemented with five components (instructions, skills, tools, progress, and artifacts) plus approval | Each part can be swapped and the differences compared in traces and evaluations | How to assemble an agent |
 | ADR-09 | Observability is unified on OpenTelemetry, sharing one Application Insights | Foundry screens and app traces can be correlated in the same place | Observability basics |
 | ADR-10 | Actual responses of the fixed-data Agent are saved and scored in Foundry | Does not change production data, detects missing responses, and also applies deterministic checks to the same actual responses. Continuous evaluation is not enabled | Evaluation reproducibility, quality gates |
 | ADR-11 | Fit Express constraints (user-assigned identity, IP restrictions, optional in-app sign-in) | Easy Auth and custom domains are not available | Characteristics of Express |
@@ -340,18 +339,12 @@ azure-updates-cowork/
 │  │  ├─ wwwroot/ index.html, css/app.css, js/app.js, js/sse.js, js/render.js, lib/ (marked, DOMPurify)
 │  │  ├─ libman.json
 │  │  └─ Dockerfile
-│  └─ UpdatesCowork.SiteProxy/
-│     ├─ Program.cs
-│     ├─ Transforms/ HtmlRewriteTransform.cs, ResponseHeaderRewriter.cs, SetCookieRewriter.cs
-│     ├─ wwwroot/__auc/bridge.js
-│     └─ Dockerfile
 ├─ tests/
 │  ├─ recordings/                      # Recorded SSE (*.sse)
 │  ├─ UpdatesCowork.Office.Tests/
 │  ├─ UpdatesCowork.AzureUpdates.Tests/
 │  ├─ UpdatesCowork.Agent.Tests/
 │  ├─ UpdatesCowork.Web.Tests/
-│  └─ UpdatesCowork.SiteProxy.Tests/
 ├─ eval/
 │  ├─ datasets/core.jsonl
 │  ├─ fixtures/updates/ list.json, <id>.json
@@ -379,7 +372,7 @@ azure-updates-cowork/
 - In `Directory.Build.props`, set `Nullable=enable`, `ImplicitUsings=enable`, `TreatWarningsAsErrors=true`, and `AnalysisLevel=latest-recommended`. For preview API warnings (e.g. `AAIP001`, `MEAI001`), use `#pragma warning disable` where they are used and write the reason in a comment.
 - Manage packages centrally in `Directory.Packages.props` and pin versions (Central Package Management).
 - For JSON, use `System.Text.Json` source generation (`AucJsonContext` in `UpdatesCowork.Shared`). Property names are `camelCase`. However, JSON of the Responses protocol uses `snake_case` as specified.
-- Container images are `linux/amd64`. web and siteproxy listen on port 8080, and agent listens on port 8088.
+- Container images are `linux/amd64`. web listens on port 8080, and agent listens on port 8088.
 - The Dockerfile build context is the repository root (to build project references together).
 
 ### 4.3 Packages and versions
@@ -400,8 +393,7 @@ Pin the versions verified at the time of research. For those marked "latest stab
 | Microsoft.Extensions.AI.Evaluation, .Quality, .Reporting | 10.11.0 | Evaluation reference | Current scoring is on the Foundry side. `aieval` is not used in this procedure |
 | Microsoft.Extensions.AI.Evaluation.Safety | 10.11.0-preview.1.26513.7 | Evaluation (optional) | |
 | DocumentFormat.OpenXml | 3.5.1 | Office | MIT license |
-| Microsoft.OpenTelemetry | 1.2.0 | Web, former SiteProxy, Agent | Sends to Azure Monitor and OTLP |
-| Yarp.ReverseProxy | 2.3.0 | Former SiteProxy | Not used in the normal path |
+| Microsoft.OpenTelemetry | 1.2.0 | Web, Agent | Sends to Azure Monitor and OTLP |
 | Microsoft.Extensions.Http.Resilience | 10.11.0 | AzureUpdates | Retries and timeouts |
 | AngleSharp | 1.9.1 | AzureUpdates | Converts description HTML to text |
 | Microsoft.Identity.Web | 4.18.0 | Web (optional) | Only when using Entra ID sign-in |
@@ -422,107 +414,6 @@ Pin the versions verified at the time of research. For those marked "latest stab
 - Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317` on Web and Agent. To align the screen and agent on fixed data, set `AZURE_UPDATES_FIXTURES_DIR` on both.
 
 ## 5. Component design
-
-### 5.1 Former siteproxy (for comparison and recovery)
-
-This section preserves the specification of the former configuration. After the change to the dedicated viewer, it is not started or deployed, and `enableLegacyProxy=false` is the default. During migration, existing Azure resources are not deleted automatically. For resources that are no longer needed, confirm that the current configuration does not reference them, obtain explicit approval from the operator, and delete them separately. The former proxy in the development environment was deleted with this procedure on 2026-11-13.
-
-#### Role and scope
-
-- The upstream is fixed to the single origin `https://azure.microsoft.com`. It is not built to relay arbitrary URLs (it is not an open proxy).
-- It runs on an origin separate from web. From the browser's point of view, the proxied updates site and web's screens are different sites, and the site's scripts cannot touch web's cookies, DOM, or APIs.
-- It injects `bridge.js` into relayed pages and notifies the parent screen of the displayed page's information with `postMessage`.
-
-#### P1 pre-survey (required, done before implementation)
-
-Because the structure of the updates site can change, check the following before implementation and record it in `docs/notes/site-survey.md`. Based on the results, decide whether to enable the "optional rules" below.
-
-1. Response headers (`X-Frame-Options`, `Content-Security-Policy`, `Set-Cookie`, `Location`, `Content-Encoding`) of `curl -sIL https://azure.microsoft.com/ja-jp/updates/` and `.../updates?id=559242`.
-2. In the Network tab of the browser's developer tools, the endpoint of the JSON calls used to display the list and details (e.g. `www.microsoft.com/releasecommunications/...`), and the `Access-Control-Allow-Origin` of their responses.
-3. Whether there are absolute URLs (`https://azure.microsoft.com/...`) in the HTML, scripts that try to break out of frames (such as `top !== self`), and whether a Service Worker is registered.
-4. `https://azure.microsoft.com/robots.txt` and the site's terms of use page.
-
-#### Settings (`SiteProxy` section of `appsettings.json`)
-
-```json
-{
-  "SiteProxy": {
-    "UpstreamOrigin": "https://azure.microsoft.com",
-    "StartPath": "/ja-jp/updates/",
-    "AllowedParentOrigins": [ "https://localhost:7101" ],
-    "InjectBridge": true,
-    "RewriteAbsoluteUrls": true,
-    "ProxyDataApi": false,
-    "DataApiOrigin": "https://www.microsoft.com",
-    "DataApiPathPrefix": "/releasecommunications/"
-  }
-}
-```
-
-On Azure, pass web's public URL to `AllowedParentOrigins` via the environment variable `SiteProxy__AllowedParentOrigins__0`.
-
-#### Routes
-
-| Order | Path | Processing |
-|---|---|---|
-| 1 | `/healthz` | Return 200 (not relayed) |
-| 2 | `/robots.txt` | Return `User-agent: *` and `Disallow: /` |
-| 3 | `/__auc/bridge.js` | Return `wwwroot/__auc/bridge.js` prefixed with the array of allowed parent origins `const AUC_PARENT_ORIGINS = [...];` (`Cache-Control: no-cache`) |
-| 4 | `/__rc/{**path}` | Only when `ProxyDataApi=true`, relay to `https://www.microsoft.com/releasecommunications/{path}` |
-| 5 | `/{**catch-all}` | Relay to `https://azure.microsoft.com/{path}` (GET and HEAD only; other methods get 405) |
-
-The YARP configuration is written in code with `LoadFromMemory`. Cluster destinations are built from configuration values.
-
-#### Transformation rules (required)
-
-Request-side transformations are as follows.
-
-- `Host` is set to the upstream host (YARP's default; `RequestHeaderOriginalHost` stays false).
-- Remove `Accept-Encoding` and receive uncompressed responses from the upstream. This is for rewriting HTML; bandwidth increases, but it is acceptable for learning purposes.
-- Do not add `X-Forwarded-*` (`ForwardedTransformActions.Off`).
-
-Response-side transformations are as follows.
-
-| Target | Processing | Reason |
-|---|---|---|
-| `X-Frame-Options` | Remove | To display in web's screen iframe |
-| `Content-Security-Policy`, `Content-Security-Policy-Report-Only` | Remove and re-add `Content-Security-Policy: frame-ancestors 'self' {AllowedParentOrigins}` | Restrict the embedder to web. The upstream's other CSP is removed; the learning guide explains that it is removed |
-| `Report-To`, `NEL` | Remove | Do not let the proxy's origin send to the upstream's reporting endpoints |
-| `Location` | If it starts with the upstream origin, keep only the path | Keep the user inside siteproxy after redirects |
-| `Set-Cookie` | Remove the `Domain=` attribute | Bind cookies to the siteproxy host |
-| All responses | Add `X-Robots-Tag: noindex, nofollow` | Keep proxied content out of search engines |
-| `text/html` bodies | Perform the "HTML rewriting" below and remove `Content-Length` | |
-
-HTML rewriting (`HtmlRewriteTransform`) is done with the following steps.
-
-1. Read the body only when `Content-Type` is `text/html` (limit 5 MB; if exceeded, relay without rewriting).
-2. Use the `charset` of `Content-Type` as the character encoding; if absent, use UTF-8.
-3. When `RewriteAbsoluteUrls=true`, replace `https://azure.microsoft.com/` and `//azure.microsoft.com/` with `/`.
-4. When `InjectBridge=true`, insert `<script src="/__auc/bridge.js" defer></script>` immediately before the first `</head>`. If there is no `</head>`, insert it immediately before `</body>`.
-5. Implement it with YARP's `AddResponseTransform`, set `ResponseTransformContext.SuppressResponseBody = true`, and then write out the rewritten body.
-
-#### Optional rules (enabled based on the P1 pre-survey results)
-
-- If the browser fetches list or detail JSON directly from `www.microsoft.com/releasecommunications` and it fails with CORS from the siteproxy origin, set `ProxyDataApi=true`. `bridge.js` wraps `window.fetch` and `XMLHttpRequest.prototype.open` and replaces those URLs with `/__rc/...`.
-- Even if there is a script that breaks out of frames, prevent it by not including `allow-top-navigation` in the `sandbox` attribute of web's iframe (section 5.2).
-- As an alternative if the display is irreparably broken, there is an option to put a simple viewer in siteproxy that renders the list and details from the data API. This departs from the requirement (open the site through a reverse proxy), so confirm with the user before adopting it.
-
-#### bridge.js (`wwwroot/__auc/bridge.js`)
-
-- Make it a single-file immediately invoked function that uses no external libraries.
-- Read the parent screen's origins from `AUC_PARENT_ORIGINS`, which is prepended at delivery time (route 3).
-- Collect and send page information at these times: on load completion, after calls to `history.pushState` and `history.replaceState` (wrapping the functions), on `popstate`, on `hashchange`, and on changes to `document.title` (`MutationObserver`). Consecutive sends with the same content are coalesced with a 300 ms throttle.
-- The content sent is `auc.page` from section 6.1. `updateId` is taken from the URL query `id`, or, if absent, from the end of the path. `heading` is the text of the first `h1` (up to 200 characters).
-- Send with `window.parent.postMessage(message, origin)` for each allowed origin. Do not use `"*"`.
-- On receiving `auc.navigate` from the parent, call `location.assign(path)` only when `event.origin` is in the allow list. `path` is restricted to relative paths starting with `/`.
-- Clicks on links starting with `https://azure.microsoft.com/` are mapped to paths within siteproxy. Other external links open in a new tab (`target="_blank"`, `rel="noopener noreferrer"`).
-
-#### Things to observe
-
-- Do not relay to hosts other than the upstream. `/__rc/` is also fixed to a single origin and path prefix.
-- The timeout per request is 30 seconds. Apply a rate limit of 240 requests per minute per IP.
-- Only the user's cookies for the siteproxy origin are sent (web's cookies are on a different origin and do not reach it).
-- Follow the terms of use of the upstream site and API, and keep usage to small amounts for learning purposes. If made public, apply IP restrictions (chapter 10).
 
 ### 5.2 web (screens and BFF)
 
@@ -672,9 +563,9 @@ TokenCredential credential = string.IsNullOrEmpty(configuration["AZURE_CLIENT_ID
 
 Because Express can only use user-assigned identities, put that identity's client ID in the Container Apps environment variable `AZURE_CLIENT_ID`.
 
-### 5.3 agent (Hosted Agent: the Cowork look-alike)
+### 5.3 agent (Hosted Agent: work-assistance agent)
 
-#### Five parts that create Cowork-likeness
+#### Five components of the work-assistance agent
 
 | Part | Form in this sample | Location | What to look at while learning |
 |---|---|---|---|
@@ -934,7 +825,7 @@ public interface IAzureUpdatesClient
 
 ### 6.1 Selection state between the viewer and the chat
 
-After `GET /api/updates/{id}` succeeds, `viewer.js` calls `app.js`'s selection callback with the following shape. iframes and `postMessage` are not used.
+After `GET /api/updates/{id}` succeeds, `viewer.js` calls `app.js`'s selection callback with the following shape.
 
 ```json
 {
@@ -1162,7 +1053,6 @@ On Azure, web's minimum and maximum replicas are both fixed to 1. Because the re
 |---|---|---|---|---|
 | `id-web` | User-assigned MI | Foundry Agent Consumer (`eed3b665-ab3a-47b6-8f48-c9382fb1dad6`) | Foundry project | Calling the agent, and retrieving and deleting session files created by the same identity |
 | `id-web` | Same as above | AcrPull (`7f951dda-4ed3-4680-a7ca-43fe172d538d`) | ACR | Pulling images |
-| `id-proxy` | User-assigned MI | AcrPull | ACR | Pulling images |
 | Agent identity | Same as above | Cognitive Services User (`a97b65f3-24c7-4388-baec-2e87135dc908`) | Foundry account | Prompt Shields |
 | Project MI | System-assigned | AcrPull (Container Registry Repository Reader if the ACR uses ABAC repository permissions) | ACR | Pulling the agent's image |
 | Project MI | Same as above | Foundry User (`53ca6127-db72-4b80-b1b0-d745d6d5456d`) | Project | Continuous evaluation rules |
@@ -1187,7 +1077,6 @@ By default, all sessions belong to the BFF's identity, and which conversation be
 | Threat | What happens | Countermeasure |
 |---|---|---|
 | External article HTML contains scripts | Displaying it as is affects the chat API and cookies | Pass it through DOMPurify in the dedicated viewer, and do not display scripts, forms, iframes, or external images. CSP is restricted to the own origin |
-| Abuse as an open proxy | It becomes a stepping stone for relaying third-party sites | Fix the upstream to one, allow only GET and HEAD, and rate-limit per IP |
 | Indirect prompt injection | The agent follows instructions written in update bodies or page titles | Wrap bodies in `<untrusted_content>` and state in the instructions not to follow them. Inspect with Prompt Shields. Fix tool destinations. Check Indirect Attack in evaluation |
 | Fetching arbitrary URLs (SSRF) | The agent is made to fetch internal URLs | Do not create tools that accept URLs. The data API host is fixed |
 | Usage abuse | If anyone can call it, costs pile up | IP restrictions, per-user rate limits, a per-run tool call limit, `MaxOutputTokens`, a 200-second cutoff |
@@ -1222,7 +1111,6 @@ The learning order is: grasp the parent-child relationships of spans in the loca
 | Component | Settings | Service name (`cloud_RoleName`) |
 |---|---|---|
 | web | `builder.UseMicrosoftOpenTelemetry(o => o.Exporters = TelemetrySetup.ResolveExporters(config))`, plus adding `UpdatesCowork.Web` with `ConfigureOpenTelemetryTracerProvider` / `ConfigureOpenTelemetryMeterProvider` | `OTEL_SERVICE_NAME=web` |
-| Former siteproxy | Not started in the normal path. `UpdatesCowork.SiteProxy` for the former configuration is retained | `siteproxy` |
 | agent | Program.cs in section 5.3. Adds `Azure.AI.AgentServer.Responses`, `UpdatesCowork.Agent`, and `Experimental.ModelContextProtocol` | The custom host is `UpdatesCowork.Agent`. Separate from the Foundry gateway's role |
 
 - In addition to the ASP.NET Core, HttpClient, Azure SDK, and MAF instrumentation of `Microsoft.OpenTelemetry`, explicitly subscribe to the MCP SDK's ActivitySource `Experimental.ModelContextProtocol`. Simply specifying `ModelContextProtocol` does not produce SDK spans.
@@ -1231,7 +1119,7 @@ The learning order is: grasp the parent-child relationships of spans in the loca
 
 ### 8.3 Naming rules
 
-ActivitySource and meter names: `UpdatesCowork.Web`, `UpdatesCowork.SiteProxy`, `UpdatesCowork.Agent`.
+ActivitySource and meter names: `UpdatesCowork.Web`, `UpdatesCowork.Agent`.
 
 Spans you create yourself are as follows.
 
@@ -1241,7 +1129,6 @@ Spans you create yourself are as follows.
 | `agent.conversation.create` | web | `gen_ai.conversation.id` |
 | `artifact.download` | web | `auc.artifact.id`, `auc.artifact.kind` |
 | `artifact.session_file.read`, `artifact.session.delete` | web | `auc.artifact.storage` (read only) |
-| `proxy.html_rewrite` | siteproxy | `url.path`, `auc.bytes_in`, `auc.bytes_out`, `auc.bridge_injected` |
 | `azure_updates.get`, `azure_updates.search` | agent | `auc.update.id`, `auc.cache_hit`, `auc.items` |
 | `office.word.build`, `office.pptx.build` | agent | `auc.items`, `auc.validation_errors`, `auc.bytes` |
 | `artifact.save` | agent | `auc.artifact.id`, `auc.artifact.storage` |
@@ -1461,9 +1348,9 @@ The cloud AI Red Teaming Agent can be used from Python, JavaScript, and REST, an
 | Application Insights connection | `.../accounts/projects/connections` (category `AppInsights`) | `appinsights` | Condition for the connection string to be injected into the Hosted Agent [To verify: shape of the properties] |
 | RAI policy | `.../accounts/raiPolicies` | `auc-agent-guardrail` | Based on `Microsoft.DefaultV2`, with Jailbreak and Indirect Attack enabled [To verify: shape of the properties] |
 | Container Registry | `Microsoft.ContainerRegistry/registries` | `cr<env><suffix>` | Basic, admin user disabled, `policies.azureADAuthenticationAsArmPolicy.status: 'enabled'` |
-| User-assigned identity | `Microsoft.ManagedIdentity/userAssignedIdentities` | `id-web-<env>` | The identity for the former proxy is built only when `enableLegacyProxy=true` |
+| User-assigned identity | `Microsoft.ManagedIdentity/userAssignedIdentities` | `id-web-<env>` | Managed identity for Web |
 | Express environment | `Microsoft.App/managedEnvironments@2026-07-01` | `cae-<env>` | `environmentMode: 'Express'`, logs to Log Analytics |
-| Container Apps | `Microsoft.App/containerApps@2026-07-01` | `ca-web-<env>` | Fixed at 1 replica. The former proxy is not part of the normal deployment |
+| Container Apps | `Microsoft.App/containerApps@2026-07-01` | `ca-web-<env>` | Fixed at 1 replica |
 | Search alerts (optional) | `Microsoft.Insights/scheduledQueryRules` | | Section 8.7 |
 
 `location` uses the azd environment's value. The existing verification environment is East US 2. Before `azd provision`, confirm that Hosted Agent, Express, and the models to be used are available in the target region.
@@ -1482,12 +1369,11 @@ This configuration does not create a new Storage Account, and Web does not conne
 | `agentName` | `updates-cowork` | |
 | `agentModelName` / `agentModelVersion` / `agentModelCapacity` | `gpt-5.4-mini` / `2026-03-17` / `30` | If function calling does not work, switch to `gpt-4.1-mini` / `2025-04-14` (chapter 14) |
 | `judgeModelName` / `judgeModelVersion` | `gpt-5-mini` / `2025-08-07` | |
-| `allowedIpRanges` | `[]` | If not empty, apply IP restrictions to web and siteproxy (e.g. `["203.0.113.10/32"]`) |
+| `allowedIpRanges` | `[]` | If not empty, apply IP restrictions to web (e.g. `["203.0.113.10/32"]`) |
 | `authMode` | `Anonymous` | Setting `EntraId` puts sign-in settings into web |
 | `alertEmail` | `''` | If empty, no alerts are created |
 | `existingAiProjectResourceId` | `''` | ARM ID of an existing Foundry project. If empty, a new one is created |
 | `existingAppInsightsResourceId` | `''` | App Insights already connected to the existing Foundry |
-| `enableLegacyProxy` | `false` | Does not build the former proxy and its identity. This is not a setting that deletes existing resources |
 
 The Express environment is written as follows.
 
@@ -1510,7 +1396,7 @@ resource env 'Microsoft.App/managedEnvironments@2026-07-01' = {
 
 Express's `appLogsConfiguration` and the Log Analytics connection have been applied in the real environment.
 
-A Container App (`modules/container-app.bicep`, shared by web and siteproxy) is written as follows.
+A Container App (`modules/container-app.bicep`) is written as follows.
 
 ```bicep
 resource app 'Microsoft.App/containerApps@2026-07-01' = {
@@ -1552,7 +1438,7 @@ resource app 'Microsoft.App/containerApps@2026-07-01' = {
 ```
 
 - Do not write a revision suffix or traffic weights (they cannot be used with Express).
-- The dedicated viewer calls only `/api/updates` on the same origin as Web. Exchanging the proxy URL is unnecessary.
+- The dedicated viewer calls `/api/updates` on the same origin as Web.
 - The above explains the main items. The actual `modules/container-app.bicep` also includes image reuse, a probe for the initial image, `workloadProfileName`, and so on. Use that file for the complete definition.
 
 web's environment variables are as follows.
@@ -1566,8 +1452,6 @@ web's environment variables are as follows.
 | `Auth__Mode` | `Anonymous` |
 
 web's minimum and maximum replicas are both fixed to 1. The registry and Data Protection keys exist only in process memory, so they are lost on restart.
-
-The settings and code of the former siteproxy are kept for comparison. The new `azure.yaml` does not deploy it as a service.
 
 ### 10.3 azure.yaml
 
@@ -1584,7 +1468,7 @@ Hosted Agents use 1 vCPU / 2 GiB and ACR remote builds. The environment variable
 
 **With azd 1.37.3 / azure.ai.agents 1.0.0, variable references in `raiPolicyName` are not expanded.** Only during deployment, replace it with the full ARM resource ID of `AZURE_AI_RAI_POLICY_ID` for the target environment, and always restore it to `${AZURE_AI_RAI_POLICY_ID}` afterward. Do not work around this by removing the policy. Initial deployment and reproduction in another environment include this caveat. For details, see `docs/notes/deploy.md` (English: [deploy-en.md](notes/deploy-en.md)).
 
-Bicep outputs references to the project, models, RAI, ACR, and monitoring, plus `WEB_URL`. It also outputs `AZURE_AI_AGENT_NAME` and `AZURE_AI_EVAL_AGENT_NAME`. `SITEPROXY_URL` is normally empty and has a value only when the former proxy is enabled.
+Bicep outputs references to the project, models, RAI, ACR, and monitoring, plus `WEB_URL`. It also outputs `AZURE_AI_AGENT_NAME` and `AZURE_AI_EVAL_AGENT_NAME`.
 
 ### 10.4 Hooks
 
@@ -1603,7 +1487,7 @@ Bicep outputs references to the project, models, RAI, ACR, and monitoring, plus 
 | Models | Token billing (per-model price list) | Evaluation judgment also uses tokens |
 | Other | Application Insights data volume, storage, ACR Basic | |
 
-Evaluation is billed for both the Agent's response generation and the judge. Resources that are no longer used still incur costs if they are merely removed from the usage path. The former proxy and Storage in the development environment have been deleted, but costs for the current Web, Agent, ACR, logs, and so on continue.
+Evaluation is billed for both the Agent's response generation and the judge. Web, Agent, ACR, logs, and other resources continue to incur costs.
 
 `azd down` deletes resources; it is not a pause. Do not run it without confirming that it does not affect the shared Foundry, models, or other users' data. A procedure for stopping/restarting Azure compute has not been verified this time.
 
@@ -1626,7 +1510,7 @@ Write the following seven labs in `docs/labs/` (P9). Each lab has four sections:
 |---|---|---|
 | 1 | Dedicated viewer for updates | Same-origin BFF, list and body, DOMPurify, the selected ID and the agent's page context |
 | 2 | Running the agent locally | `.http` requests to localhost:8088, `execute_tool` spans, switching to fixed data |
-| 3 | Turning it into a Cowork look-alike | Loading skills, private MCP, `update_plan`, generating and validating Word and PowerPoint, the approval feature |
+| 3 | Building the work-assistance agent | Loading skills, private MCP, `update_plan`, generating and validating Word and PowerPoint, the approval feature |
 | 4 | Deploying to Foundry and embedding in the site | `azd up`, assigning roles to the agent identity, calling from the BFF with a managed identity, continuing conversations, retrieving and deleting artifacts via Session Files, the 403 when Foundry Agent Consumer is removed |
 | 5 | Observing | Aspire Dashboard, Application Insights Transaction search, Foundry Traces and Monitor, the KQL in Appendix D, joining with user ratings |
 | 6 | Evaluating | The fixed-data-only Agent, saving actual responses, Foundry scoring, Office checks, distinguishing not-applicable from unscored, quality gates |
@@ -1639,7 +1523,7 @@ The mapping to the learning goals in section 1.2 is as follows: A is covered in 
 | Kind | Target | Policy |
 |---|---|---|
 | Unit tests | Office, AzureUpdates, ChatEventMapper, PageContextValidator, SetCookieRewriter, HtmlRewriteTransform, ToolCallMiddleware | No network. HTTP returns fixed responses by replacing `HttpMessageHandler` |
-| Integration tests | web and siteproxy | Start with `WebApplicationFactory`. The agent is replaced with `FakeAgentGateway` (replays recorded SSE) |
+| Integration tests | web | Start with `WebApplicationFactory`. The agent is replaced with `FakeAgentGateway` (replays recorded SSE) |
 | SSE recordings | `tests/recordings/*.sse` | Save actual agent responses in P5 and use them in `ChatEventMapper` tests |
 | Evaluation | The whole agent | Chapter 9 |
 | Manual checks | Screens | Check along the learning guide's checklist (automation with Playwright is a stretch goal) |
@@ -1652,7 +1536,7 @@ The mapping to the learning goals in section 1.2 is as follows: A is covered in 
 |---|---|---|
 | Preview APIs | Hosting, AgentServer, and Projects 3.x are preview and change every few days | Pin versions, and verify the [To verify] items at implementation time. Treat upgrades as P10 |
 | Changes in the updates data API | Schema changes or upstream outages affect fetching lists and bodies | Use the same fetch and validation library in the dedicated viewer and the Agent. Make fetch errors explicit, and do not confuse an old display with a new selection |
-| Terms of use of the site and data API | Proxying and automated fetching must stay within the terms of use | Keep usage small and for learning purposes, apply IP restrictions, and keep content out of search engines. Check the terms of use before making it public |
+| Terms of use of the site and data API | Automated requests must stay within the terms of use | Keep usage small and for learning purposes, apply IP restrictions, and check the terms of use before making it public |
 | Express timeout | Long responses may be cut off midway | Cut off at 200 seconds and let users send "continue". Long processing with background responses (`background: true`) is treated as a stretch goal |
 | Models and function calling | The agent tool support table lists Functions as No for the gpt-5.4 series and gpt-5-mini, while the model descriptions say they support function calling | In P3, check whether function tools are actually called; if not, switch to `gpt-4.1-mini` |
 | Japanese evaluation | Some evaluators are English only | Section 9.8 |

@@ -2,7 +2,7 @@
 
 # Azure Updates Cowork設計書
 
-- 版: 1.1 (2026-11-12、専用ビューアー・MCP・固定データ評価への変更を反映)
+- 版: 1.2 (2026-11-13、現行構成に合わせて旧プロキシの設計記述を削除)
 - 読み手: GitHub Copilot (エージェントモード、コーディングエージェント)と、このサンプルでAzureを学ぶ開発者
 - 関連ファイル: `docs/implementation-plan.md` (実装フェーズと受け入れ条件)、`.github/copilot-instructions.md` (Copilotが常に守る決まり)
 
@@ -27,7 +27,7 @@
 
 「Azure Updates Cowork」は、Azureの更新情報を専用ビューアーで画面の左側に表示し、右側のチャットで選択中の更新情報について質問したり、要約をWordやPowerPointのファイルにしたりできる学習用のWebアプリである。チャットの相手はMicrosoft FoundryのHosted Agentとして動くC#のエージェントで、WebアプリはAzure Container AppsのExpress環境で動く。
 
-利用者の依頼により、旧リバースプロキシ構成を置き換えた。現在の構成は iframe を使わず、業務機能を同一コンテナー内の非公開 MCP サーバー経由で呼ぶ。評価は別 Agent と固定データを使う。5.1節の旧プロキシは比較・復旧用の記録であり、現在の通常経路には含めない。
+業務機能は同一コンテナー内の非公開MCPサーバー経由で呼び、評価には本番とは別のAgentと固定データを使う。
 
 ```text
 +----------------------------------------------------------------------------------+
@@ -61,7 +61,7 @@
 - ブラウザから直接エージェントを呼ばない理由(利用者ごとのトークン、CORS、利用量の制御)を説明できる。
 - データAPIから専用ビューアーを作り、無害化した本文を表示し、選択した更新IDだけをエージェントの取得処理につなげられる。
 
-**B. Coworkもどきの作り方**
+**B. 業務支援エージェントの構成**
 
 - 指示文、スキル(SKILL.md)、ツール、進行状況、成果物の5つの部品でエージェントを組み立てられる。
 - 事実はツールで公式のデータから取り、画面のHTMLや取得した本文に書かれた指示には従わない作りにできる。
@@ -79,7 +79,6 @@
 
 - 本番運用のSLA、複数リージョン構成、VNetによる閉域化。
 - Microsoft 365 CopilotやTeamsへの公開。
-- 任意のサイトのプロキシ。上流はAzureの更新情報サイトに固定する。
 - メール送信など、外部への書き込みを伴う操作。
 ## 2. 前提となる事実(2026-11-11時点の調査結果)
 
@@ -289,7 +288,7 @@ sequenceDiagram
 | ADR-05 | 表示中のページの情報はdeveloperメッセージで渡す | `metadata`はエージェントに届かない。developerメッセージならトレースに残り、評価データでも同じ形を再現できる | 文脈の渡し方、評価の再現性 |
 | ADR-06 | 事実はデータAPIから取り、プロキシしたHTMLは使わない | HTMLは表示用で構造が変わりやすい。ツールの接続先を1つのホストに固定し、任意のURLを取りに行かせない | ツール設計、SSRFと間接プロンプトインジェクションへの備え |
 | ADR-07 | 成果物はOpen XML SDKで作り、Hosted Agentのセッションファイルに置く | Blobへの外部ネットワークアクセスが組織ポリシーで制限されている。WebはSession Files API経由で取得し、新しい会話やページ終了時に削除を試みる | セッションファイル、エージェントID、成果物の受け渡し |
-| ADR-08 | Coworkらしさを5つの部品(指示文、スキル、ツール、進行状況、成果物)と承認で表す | 部品ごとに差し替え、違いをトレースと評価で見比べられる | エージェントの組み立て方 |
+| ADR-08 | 業務支援機能を5つの要素(指示文、スキル、ツール、進行状況、成果物)と承認で構成する | 要素ごとに差し替え、違いをトレースと評価で見比べられる | エージェントの組み立て方 |
 | ADR-09 | 観測はOpenTelemetryにそろえ、Application Insightsを1つ共有する | Foundryの画面とアプリのトレースを同じ場所で突き合わせられる | 観測の基本 |
 | ADR-10 | 固定データ用Agentの実応答を保存し、Foundryで採点する | 本番データを変更せず、応答欠落を検出し、同じ実応答へ決定的な検査も適用する。継続評価は有効にしない | 評価の再現性、品質ゲート |
 | ADR-11 | Expressの制約に合わせる(ユーザー割り当てID、IP制限、アプリ内の任意サインイン) | Easy Authとカスタムドメインが使えない | Expressの特徴 |
@@ -340,18 +339,12 @@ azure-updates-cowork/
 │  │  ├─ wwwroot/ index.html, css/app.css, js/app.js, js/sse.js, js/render.js, lib/ (marked、DOMPurify)
 │  │  ├─ libman.json
 │  │  └─ Dockerfile
-│  └─ UpdatesCowork.SiteProxy/
-│     ├─ Program.cs
-│     ├─ Transforms/ HtmlRewriteTransform.cs, ResponseHeaderRewriter.cs, SetCookieRewriter.cs
-│     ├─ wwwroot/__auc/bridge.js
-│     └─ Dockerfile
 ├─ tests/
 │  ├─ recordings/                      # 録画した SSE (*.sse)
 │  ├─ UpdatesCowork.Office.Tests/
 │  ├─ UpdatesCowork.AzureUpdates.Tests/
 │  ├─ UpdatesCowork.Agent.Tests/
 │  ├─ UpdatesCowork.Web.Tests/
-│  └─ UpdatesCowork.SiteProxy.Tests/
 ├─ eval/
 │  ├─ datasets/core.jsonl
 │  ├─ fixtures/updates/ list.json, <id>.json
@@ -379,7 +372,7 @@ azure-updates-cowork/
 - `Directory.Build.props`で`Nullable=enable`、`ImplicitUsings=enable`、`TreatWarningsAsErrors=true`、`AnalysisLevel=latest-recommended`を設定する。プレビューAPIの警告(例: `AAIP001`、`MEAI001`)は、使う箇所で`#pragma warning disable`し、理由をコメントに書く。
 - パッケージは`Directory.Packages.props`で一元管理し、版を固定する(Central Package Management)。
 - JSONは`System.Text.Json`のソース生成(`UpdatesCowork.Shared`の`AucJsonContext`)を使う。プロパティ名は`camelCase`。ただしResponsesプロトコルのJSONは仕様どおり`snake_case`にする。
-- コンテナーイメージは`linux/amd64`。webとsiteproxyは8080番、agentは8088番で待ち受ける。
+- コンテナーイメージは`linux/amd64`。webは8080番、agentは8088番で待ち受ける。
 - Dockerfileのビルドコンテキストはリポジトリのルートにする(プロジェクト参照をまとめてビルドするため)。
 
 ### 4.3 パッケージと版
@@ -400,8 +393,7 @@ azure-updates-cowork/
 | Microsoft.Extensions.AI.Evaluation、.Quality、.Reporting | 10.11.0 | 評価の参照 | 現在の採点はFoundry側。`aieval`は本手順では使わない |
 | Microsoft.Extensions.AI.Evaluation.Safety | 10.11.0-preview.1.26513.7 | 評価(任意) | |
 | DocumentFormat.OpenXml | 3.5.1 | Office | MITライセンス |
-| Microsoft.OpenTelemetry | 1.2.0 | Web、旧SiteProxy、Agent | Azure MonitorとOTLPに送る |
-| Yarp.ReverseProxy | 2.3.0 | 旧SiteProxy | 通常経路では使わない |
+| Microsoft.OpenTelemetry | 1.2.0 | Web、Agent | Azure MonitorとOTLPに送る |
 | Microsoft.Extensions.Http.Resilience | 10.11.0 | AzureUpdates | 再試行とタイムアウト |
 | AngleSharp | 1.9.1 | AzureUpdates | 説明文のHTMLをテキストにする |
 | Microsoft.Identity.Web | 4.18.0 | Web (任意) | Entra IDサインインを使う場合だけ |
@@ -422,107 +414,6 @@ azure-updates-cowork/
 - WebとAgentに`OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317`を設定する。固定データで画面とエージェントをそろえる場合は両方に`AZURE_UPDATES_FIXTURES_DIR`を設定する。
 
 ## 5. コンポーネント設計
-
-### 5.1 旧siteproxy (比較・復旧用)
-
-この節は旧構成の仕様を残したもの。専用ビューアーへの変更後は起動・デプロイせず、`enableLegacyProxy=false`を既定とする。移行時は既存Azureリソースを自動削除しない。不要になったリソースは、現行構成から参照されていないことを確認し、運用者の明示承認を受けて別途削除する。開発環境の旧proxyは2026-11-13にこの手順で削除済み。
-
-#### 役割と範囲
-
-- 上流は`https://azure.microsoft.com`の1つに固定する。任意のURLを中継する作りにはしない(オープンプロキシにしない)。
-- webとは別のオリジンで動かす。ブラウザーから見ると、プロキシした更新情報サイトとwebの画面は別サイトになり、サイト側のスクリプトはwebのCookie、DOM、APIに触れない。
-- 中継したページに`bridge.js`を差し込み、表示中のページの情報を親の画面に`postMessage`で知らせる。
-
-#### P1の事前調査(必須、実装の前に行う)
-
-更新情報サイトの作りは変わることがあるため、実装の前に次を確かめ、`docs/notes/site-survey.md`に記録する。結果によって、下の「任意の規則」を有効にするかを決める。
-
-1. `curl -sIL https://azure.microsoft.com/ja-jp/updates/`と`.../updates?id=559242`の応答ヘッダー(`X-Frame-Options`、`Content-Security-Policy`、`Set-Cookie`、`Location`、`Content-Encoding`)。
-2. ブラウザーの開発者ツールのNetworkタブで、一覧と詳細の表示に使われるJSONの呼び出し先(例: `www.microsoft.com/releasecommunications/...`)と、その応答の`Access-Control-Allow-Origin`。
-3. HTML内の絶対URL (`https://azure.microsoft.com/...`)の有無、フレームから抜け出そうとするスクリプト(`top !== self`など)、Service Workerの登録の有無。
-4. `https://azure.microsoft.com/robots.txt`と、サイトの利用条件のページ。
-
-#### 設定(`appsettings.json`の`SiteProxy`節)
-
-```json
-{
-  "SiteProxy": {
-    "UpstreamOrigin": "https://azure.microsoft.com",
-    "StartPath": "/ja-jp/updates/",
-    "AllowedParentOrigins": [ "https://localhost:7101" ],
-    "InjectBridge": true,
-    "RewriteAbsoluteUrls": true,
-    "ProxyDataApi": false,
-    "DataApiOrigin": "https://www.microsoft.com",
-    "DataApiPathPrefix": "/releasecommunications/"
-  }
-}
-```
-
-Azure上では、`AllowedParentOrigins`にwebの公開URLを環境変数`SiteProxy__AllowedParentOrigins__0`で渡す。
-
-#### ルート
-
-| 順序 | パス | 処理 |
-|---|---|---|
-| 1 | `/healthz` | 200を返す(中継しない) |
-| 2 | `/robots.txt` | `User-agent: *`と`Disallow: /`を返す |
-| 3 | `/__auc/bridge.js` | `wwwroot/__auc/bridge.js`の先頭に、許可する親オリジンの配列`const AUC_PARENT_ORIGINS = [...];`を付けて返す(`Cache-Control: no-cache`) |
-| 4 | `/__rc/{**path}` | `ProxyDataApi=true`のときだけ、`https://www.microsoft.com/releasecommunications/{path}`へ中継する |
-| 5 | `/{**catch-all}` | `https://azure.microsoft.com/{path}`へ中継する(GETとHEADだけ。ほかのメソッドは405) |
-
-YARPの設定は`LoadFromMemory`でコードに書く。クラスターの宛先は設定値から作る。
-
-#### 変換の規則(必須)
-
-要求側の変換は次のとおり。
-
-- `Host`は上流のホストにする(YARPの既定。`RequestHeaderOriginalHost`はfalseのまま)。
-- `Accept-Encoding`を外し、上流から圧縮なしで受け取る。HTMLを書き換えるためで、帯域は増えるが学習用として許容する。
-- `X-Forwarded-*`は付けない(`ForwardedTransformActions.Off`)。
-
-応答側の変換は次のとおり。
-
-| 対象 | 処理 | 理由 |
-|---|---|---|
-| `X-Frame-Options` | 削除 | webの画面のiframeに表示するため |
-| `Content-Security-Policy`、`Content-Security-Policy-Report-Only` | 削除し、`Content-Security-Policy: frame-ancestors 'self' {AllowedParentOrigins}`を付け直す | 埋め込み元をwebに限る。上流のその他のCSPは外れるので、外れることを学習ガイドで説明する |
-| `Report-To`、`NEL` | 削除 | プロキシのオリジンから上流の報告先に送らせない |
-| `Location` | 上流のオリジンで始まる場合は、パスだけにする | リダイレクト後もsiteproxyの中にとどめる |
-| `Set-Cookie` | `Domain=`属性を削除する | Cookieをsiteproxyのホストに結びつける |
-| すべての応答 | `X-Robots-Tag: noindex, nofollow`を付ける | プロキシした内容を検索エンジンに載せない |
-| `text/html`の本文 | 下の「HTMLの書き換え」を行い、`Content-Length`を外す | |
-
-HTMLの書き換え(`HtmlRewriteTransform`)は、次の手順で行う。
-
-1. `Content-Type`が`text/html`のときだけ本文を読む(上限5 MB。超えたら書き換えずに中継する)。
-2. 文字コードは`Content-Type`の`charset`を使い、なければUTF-8とする。
-3. `RewriteAbsoluteUrls=true`のとき、`https://azure.microsoft.com/`と`//azure.microsoft.com/`を`/`に置き換える。
-4. `InjectBridge=true`のとき、最初の`</head>`の直前に`<script src="/__auc/bridge.js" defer></script>`を入れる。`</head>`がなければ`</body>`の直前に入れる。
-5. 実装はYARPの`AddResponseTransform`で行い、`ResponseTransformContext.SuppressResponseBody = true`にしてから書き換えた本文を書き出す。
-
-#### 任意の規則(P1の事前調査の結果で有効にする)
-
-- 一覧や詳細のJSONをブラウザーが`www.microsoft.com/releasecommunications`から直接取得していて、siteproxyのオリジンからだとCORSで失敗する場合は、`ProxyDataApi=true`にする。`bridge.js`は`window.fetch`と`XMLHttpRequest.prototype.open`を包み、そのURLを`/__rc/...`に置き換える。
-- フレームから抜け出すスクリプトがある場合でも、web側のiframeの`sandbox`属性に`allow-top-navigation`を入れないことで防ぐ(5.2節)。
-- どうしても表示が崩れる場合の代替として、siteproxyにデータAPIから一覧と詳細を描く簡易ビューアーを置く案がある。これは要件(サイトをリバースプロキシで開く)から外れるため、採る場合は利用者に確認する。
-
-#### bridge.js (`wwwroot/__auc/bridge.js`)
-
-- 外部ライブラリを使わない1ファイルの即時実行関数にする。
-- 親の画面のオリジンは、配信時に先頭へ付く`AUC_PARENT_ORIGINS`から読む(ルートの3番)。
-- 次のときにページの情報を集めて送る: 読み込み完了時、`history.pushState`と`history.replaceState`の呼び出し後(関数を包む)、`popstate`、`hashchange`、`document.title`の変化(`MutationObserver`)。同じ内容の連続送信は300ミリ秒の間引きでまとめる。
-- 送る内容は6.1節の`auc.page`。`updateId`はURLのクエリ`id`、なければパスの末尾から取る。`heading`は最初の`h1`の文字列(200文字まで)。
-- 送信は`window.parent.postMessage(message, origin)`を、許可されたオリジンごとに行う。`"*"`は使わない。
-- 親からの`auc.navigate`を受け取ったら、`event.origin`が許可リストにあるときだけ`location.assign(path)`する。`path`は`/`で始まる相対パスに限る。
-- `https://azure.microsoft.com/`で始まるリンクのクリックは、siteproxy内のパスに読み替える。それ以外の外部リンクは新しいタブで開く(`target="_blank"`、`rel="noopener noreferrer"`)。
-
-#### 守ること
-
-- 上流以外のホストへは中継しない。`/__rc/`も1つのオリジンとパス前置詞に固定する。
-- 要求1件あたりのタイムアウトは30秒。IPごとに1分240件のレート制限をかける。
-- 利用者のCookieはsiteproxyのオリジンのものだけが送られる(webのCookieは別オリジンなので届かない)。
-- 上流のサイトとAPIの利用条件に従い、学習目的の少量の利用にとどめる。公開する場合はIP制限をかける(10章)。
 
 ### 5.2 web (画面とBFF)
 
@@ -672,9 +563,9 @@ TokenCredential credential = string.IsNullOrEmpty(configuration["AZURE_CLIENT_ID
 
 Expressではユーザー割り当てIDしか使えないため、Container Appsの環境変数`AZURE_CLIENT_ID`にそのIDのクライアントIDを入れる。
 
-### 5.3 agent (Hosted Agent: Coworkもどき)
+### 5.3 agent (Hosted Agent: 業務支援エージェント)
 
-#### Coworkらしさを作る5つの部品
+#### 業務支援エージェントを構成する5つの要素
 
 | 部品 | このサンプルでの形 | 置き場所 | 学習で見るところ |
 |---|---|---|---|
@@ -932,7 +823,7 @@ public interface IAzureUpdatesClient
 
 ### 6.1 ビューアーとチャットの選択状態
 
-`viewer.js`は`GET /api/updates/{id}`の成功後に、次の形で`app.js`の選択コールバックを呼ぶ。iframeや`postMessage`は使わない。
+`viewer.js`は`GET /api/updates/{id}`の成功後に、次の形で`app.js`の選択コールバックを呼ぶ。
 
 ```json
 {
@@ -1152,7 +1043,6 @@ Azureではwebの最小／最大レプリカをともに1に固定する。台�
 |---|---|---|---|---|
 | `id-web` | ユーザー割り当てMI | Foundry Agent Consumer (`eed3b665-ab3a-47b6-8f48-c9382fb1dad6`) | Foundryプロジェクト | エージェントの呼び出しと、同じIDが作成したセッションファイルの取得・削除 |
 | `id-web` | 同上 | AcrPull (`7f951dda-4ed3-4680-a7ca-43fe172d538d`) | ACR | イメージの取得 |
-| `id-proxy` | ユーザー割り当てMI | AcrPull | ACR | イメージの取得 |
 | エージェントID | 同上 | Cognitive Services User (`a97b65f3-24c7-4388-baec-2e87135dc908`) | Foundryアカウント | Prompt Shields |
 | プロジェクトのMI | システム割り当て | AcrPull (ACRがABACのリポジトリ権限を使う場合はContainer Registry Repository Reader) | ACR | エージェントのイメージの取得 |
 | プロジェクトのMI | 同上 | Foundry User (`53ca6127-db72-4b80-b1b0-d745d6d5456d`) | プロジェクト | 継続評価のルール |
@@ -1177,7 +1067,6 @@ Azureではwebの最小／最大レプリカをともに1に固定する。台�
 | 脅威 | 起きること | 対策 |
 |---|---|---|
 | 外部の記事HTMLにスクリプトが含まれる | そのまま表示するとチャットAPIやCookieへ影響する | 専用ビューアーでDOMPurifyを通し、スクリプト・フォーム・iframe・外部画像を表示しない。CSPは自己オリジンに限定する |
-| オープンプロキシとして悪用される | 第三者のサイトを中継する踏み台になる | 上流を1つに固定し、GETとHEADだけを許し、IPごとにレート制限をかける |
 | 間接プロンプトインジェクション | 更新情報の本文やページのタイトルに書かれた指示にエージェントが従う | 本文は`<untrusted_content>`で囲み、指示文で従わないと明記する。Prompt Shieldsで検査する。ツールの接続先を固定する。評価でIndirect Attackを見る |
 | 任意のURLの取得(SSRF) | エージェントに内部のURLを取りに行かせる | URLを受け取るツールを作らない。データAPIのホストは固定 |
 | 利用量の悪用 | 誰でも呼べると費用がかさむ | IP制限、利用者ごとのレート制限、1回のツール呼び出し上限、`MaxOutputTokens`、200秒の打ち切り |
@@ -1212,7 +1101,6 @@ flowchart LR
 | コンポーネント | 設定 | サービス名(`cloud_RoleName`) |
 |---|---|---|
 | web | `builder.UseMicrosoftOpenTelemetry(o => o.Exporters = TelemetrySetup.ResolveExporters(config))`と、`ConfigureOpenTelemetryTracerProvider` / `ConfigureOpenTelemetryMeterProvider`で`UpdatesCowork.Web`を追加 | `OTEL_SERVICE_NAME=web` |
-| 旧siteproxy | 通常経路では起動しない。旧構成用の`UpdatesCowork.SiteProxy`は維持 | `siteproxy` |
 | agent | 5.3節のProgram.cs。`Azure.AI.AgentServer.Responses`、`UpdatesCowork.Agent`、`Experimental.ModelContextProtocol`を追加 | 自作ホストは`UpdatesCowork.Agent`。Foundryゲートウェイのロールとは別 |
 
 - `Microsoft.OpenTelemetry`のASP.NET Core、HttpClient、Azure SDK、MAF計装に加え、MCP SDKのActivitySource `Experimental.ModelContextProtocol`を明示して購読する。単に`ModelContextProtocol`を指定してもSDKスパンは出ない。
@@ -1221,7 +1109,7 @@ flowchart LR
 
 ### 8.3 名前の決まり
 
-ActivitySourceとメーターの名前: `UpdatesCowork.Web`、`UpdatesCowork.SiteProxy`、`UpdatesCowork.Agent`。
+ActivitySourceとメーターの名前: `UpdatesCowork.Web`、`UpdatesCowork.Agent`。
 
 自分で作るスパンは次のとおり。
 
@@ -1231,7 +1119,6 @@ ActivitySourceとメーターの名前: `UpdatesCowork.Web`、`UpdatesCowork.Sit
 | `agent.conversation.create` | web | `gen_ai.conversation.id` |
 | `artifact.download` | web | `auc.artifact.id`、`auc.artifact.kind` |
 | `artifact.session_file.read`、`artifact.session.delete` | web | `auc.artifact.storage` (readのみ) |
-| `proxy.html_rewrite` | siteproxy | `url.path`、`auc.bytes_in`、`auc.bytes_out`、`auc.bridge_injected` |
 | `azure_updates.get`、`azure_updates.search` | agent | `auc.update.id`、`auc.cache_hit`、`auc.items` |
 | `office.word.build`、`office.pptx.build` | agent | `auc.items`、`auc.validation_errors`、`auc.bytes` |
 | `artifact.save` | agent | `auc.artifact.id`、`auc.artifact.storage` |
@@ -1445,9 +1332,9 @@ Responses要求で`session_creation_failed`と明示された場合だけ、10�
 | Application Insightsの接続 | `.../accounts/projects/connections` (category `AppInsights`) | `appinsights` | Hosted Agentに接続文字列が注入される条件[要確認: プロパティの形] |
 | RAIポリシー | `.../accounts/raiPolicies` | `auc-agent-guardrail` | 基準`Microsoft.DefaultV2`、JailbreakとIndirect Attackを有効[要確認: プロパティの形] |
 | Container Registry | `Microsoft.ContainerRegistry/registries` | `cr<env><suffix>` | Basic、管理者ユーザー無効、`policies.azureADAuthenticationAsArmPolicy.status: 'enabled'` |
-| ユーザー割り当てID | `Microsoft.ManagedIdentity/userAssignedIdentities` | `id-web-<env>` | 旧proxy用IDは`enableLegacyProxy=true`の場合だけ構築 |
+| ユーザー割り当てID | `Microsoft.ManagedIdentity/userAssignedIdentities` | `id-web-<env>` | WebのマネージドID |
 | Express環境 | `Microsoft.App/managedEnvironments@2026-07-01` | `cae-<env>` | `environmentMode: 'Express'`、ログはLog Analytics |
-| Container Apps | `Microsoft.App/containerApps@2026-07-01` | `ca-web-<env>` | 1レプリカ固定。旧proxyは通常の配置対象外 |
+| Container Apps | `Microsoft.App/containerApps@2026-07-01` | `ca-web-<env>` | 1レプリカ固定 |
 | 検索アラート(任意) | `Microsoft.Insights/scheduledQueryRules` | | 8.7節 |
 
 `location`はazd環境の値を使う。既存の検証環境はEast US 2。Hosted Agent、Express、使うモデルが対象リージョンで使えることを`azd provision`の前に確かめる。
@@ -1466,12 +1353,11 @@ Responses要求で`session_creation_failed`と明示された場合だけ、10�
 | `agentName` | `updates-cowork` | |
 | `agentModelName` / `agentModelVersion` / `agentModelCapacity` | `gpt-5.4-mini` / `2026-03-17` / `30` | 関数呼び出しが動かない場合は`gpt-4.1-mini` / `2025-04-14`に替える(14章) |
 | `judgeModelName` / `judgeModelVersion` | `gpt-5-mini` / `2025-08-07` | |
-| `allowedIpRanges` | `[]` | 空でなければwebとsiteproxyにIP制限をかける(例: `["203.0.113.10/32"]`) |
+| `allowedIpRanges` | `[]` | 空でなければwebにIP制限をかける(例: `["203.0.113.10/32"]`) |
 | `authMode` | `Anonymous` | `EntraId`にするとwebにサインイン用の設定を入れる |
 | `alertEmail` | `''` | 空ならアラートを作らない |
 | `existingAiProjectResourceId` | `''` | 既存FoundryのARM ID。空だと新規作成になる |
 | `existingAppInsightsResourceId` | `''` | 既存Foundryに接続済みのApp Insights |
-| `enableLegacyProxy` | `false` | 旧proxyとIDを構築しない。既存リソースを削除する指定ではない |
 
 Express環境は次のように書く。
 
@@ -1494,7 +1380,7 @@ resource env 'Microsoft.App/managedEnvironments@2026-07-01' = {
 
 Expressの`appLogsConfiguration`とLog Analytics接続は実環境で適用済み。
 
-Container App (`modules/container-app.bicep`。webとsiteproxyで共用)は次のように書く。
+Container App (`modules/container-app.bicep`)は次のように書く。
 
 ```bicep
 resource app 'Microsoft.App/containerApps@2026-07-01' = {
@@ -1536,7 +1422,7 @@ resource app 'Microsoft.App/containerApps@2026-07-01' = {
 ```
 
 - リビジョンサフィックスとトラフィックの重みは書かない(Expressでは使えない)。
-- 専用ビューアーはWebと同一オリジンの`/api/updates`だけを呼ぶ。proxyのURL交換は不要。
+- 専用ビューアーはWebと同一オリジンの`/api/updates`を呼ぶ。
 - 上記は主要項目の説明。実際の`modules/container-app.bicep`にはイメージ再利用、初期イメージ用probe、`workloadProfileName`などもある。完全な定義は同ファイルを使う。
 
 webの環境変数は次のとおり。
@@ -1550,8 +1436,6 @@ webの環境変数は次のとおり。
 | `Auth__Mode` | `Anonymous` |
 
 webは最小／最大レプリカをともに1に固定する。台帳とData Protectionキーはプロセスメモリーだけにあるため、再起動で失われる。
-
-旧siteproxyの設定とコードは比較用に保持する。新しい`azure.yaml`ではサービスとしてデプロイしない。
 
 ### 10.3 azure.yaml
 
@@ -1568,7 +1452,7 @@ Hosted Agentは1 vCPU / 2 GiB、ACRのリモートビルドを使う。環境変
 
 **azd 1.37.3 / azure.ai.agents 1.0.0では、`raiPolicyName`の変数参照が展開されない。** デプロイ中だけ、対象環境の`AZURE_AI_RAI_POLICY_ID`の完全なARMリソースIDへ置き換え、終了後は必ず`${AZURE_AI_RAI_POLICY_ID}`へ戻す。ポリシーを外して回避しない。初回展開や別環境への再現はこの留保を含む。詳細は`docs/notes/deploy.md`。
 
-Bicepはプロジェクト・モデル・RAI・ACR・監視の参照と`WEB_URL`を出力する。`AZURE_AI_AGENT_NAME`と`AZURE_AI_EVAL_AGENT_NAME`も出力する。`SITEPROXY_URL`は通常空で、旧proxyを有効にした場合だけ値が入る。
+Bicepはプロジェクト・モデル・RAI・ACR・監視の参照と`WEB_URL`を出力する。`AZURE_AI_AGENT_NAME`と`AZURE_AI_EVAL_AGENT_NAME`も出力する。
 
 ### 10.4 フック
 
@@ -1587,7 +1471,7 @@ Bicepはプロジェクト・モデル・RAI・ACR・監視の参照と`WEB_URL`
 | モデル | トークン課金(モデルごとの料金表) | 評価の判定にもトークンを使う |
 | その他 | Application Insightsのデータ量、ストレージ、ACR Basic | |
 
-評価はAgentの応答生成とjudgeの両方で課金される。使わなくなったリソースも、利用経路から外しただけでは費用はなくならない。開発環境の旧proxyとStorageは削除済みだが、現行Web、Agent、ACR、ログなどの費用は継続する。
+評価はAgentの応答生成とjudgeの両方で課金される。Web、Agent、ACR、ログなどの費用が継続する。
 
 `azd down`は一時停止ではなくリソース削除。共有Foundry、モデル、他の利用者のデータへ影響しないことを確認せず実行してはいけない。Azureのコンピュート停止／再開手順は今回未検証。
 
@@ -1610,7 +1494,7 @@ Bicepはプロジェクト・モデル・RAI・ACR・監視の参照と`WEB_URL`
 |---|---|---|
 | 1 | 更新情報の専用ビューアー | 同一オリジンBFF、一覧と本文、DOMPurify、選択IDとエージェントのページ文脈 |
 | 2 | エージェントをローカルで動かす | localhost:8088への`.http`の要求、`execute_tool`のスパン、固定データとの切り替え |
-| 3 | Coworkもどきにする | スキルの読み込み、非公開MCP、`update_plan`、WordとPowerPointの生成と検証、承認機能 |
+| 3 | 業務支援エージェントを構成する | スキルの読み込み、非公開MCP、`update_plan`、WordとPowerPointの生成と検証、承認機能 |
 | 4 | Foundryにデプロイしてサイトに組み込む | `azd up`、エージェントIDへのロール付与、BFFからマネージドIDでの呼び出し、会話の続き、Session Files経由の成果物取得と削除、Foundry Agent Consumerを外したときの403 |
 | 5 | 観測する | Aspire Dashboard、Application InsightsのTransaction search、FoundryのTracesとMonitor、付録DのKQL、利用者の評価との結合 |
 | 6 | 評価する | 固定データ専用Agent、実応答の保存、Foundryの採点、Office検査、対象外と未採点の区別、品質ゲート |
@@ -1623,7 +1507,7 @@ Bicepはプロジェクト・モデル・RAI・ACR・監視の参照と`WEB_URL`
 | 種類 | 対象 | 方針 |
 |---|---|---|
 | 単体テスト | Office、AzureUpdates、ChatEventMapper、PageContextValidator、SetCookieRewriter、HtmlRewriteTransform、ToolCallMiddleware | ネットワークを使わない。HTTPは`HttpMessageHandler`の差し替えで固定応答にする |
-| 結合テスト | webとsiteproxy | `WebApplicationFactory`で起動する。エージェントは`FakeAgentGateway` (録画したSSEを再生)に差し替える |
+| 結合テスト | web | `WebApplicationFactory`で起動する。エージェントは`FakeAgentGateway` (録画したSSEを再生)に差し替える |
 | SSEの録画 | `tests/recordings/*.sse` | P5で実際のエージェントの応答を保存し、`ChatEventMapper`のテストに使う |
 | 評価 | エージェント全体 | 9章 |
 | 手動の確認 | 画面 | 学習ガイドのチェックリストに沿って確かめる(Playwrightでの自動化は発展課題) |
