@@ -1,0 +1,12 @@
+title: Azure Updates Cowork
+description: Azure Updates Cowork の構成、Foundry 評価、Hosted Agent の統合と改善を学ぶガイドです。
+url: https://tokawa-ms.github.io
+baseurl: /azure-updates-cowork-starter-demo
+markdown: kramdown
+highlighter: rouge
+permalink: /:basename/
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+exclude:
+  - README.md

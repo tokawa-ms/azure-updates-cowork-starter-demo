@@ -1,0 +1,50 @@
+name: Publish learning guide
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5.0.0
+      - name: Prepare Jekyll source
+        run: |
+          mkdir -p _site-source/assets
+          cp -R site/. _site-source/
+          cp docs/diagrams/01-architecture-overview.png _site-source/assets/
+          cp docs/diagrams/05-agent-building-blocks.png _site-source/assets/
+          cp docs/diagrams/06-agent-mcp-internals.png _site-source/assets/
+          cp docs/diagrams/09-observability.png _site-source/assets/
+          cp docs/diagrams/10-evaluation-pipeline.png _site-source/assets/
+      - name: Build Jekyll site
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./_site-source
+          destination: ./_site
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4.0.0
+        with:
+          path: _site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4.0.5
