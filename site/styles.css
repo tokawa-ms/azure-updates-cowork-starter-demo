@@ -85,7 +85,7 @@ code { font-size: .9em; }
   font-family: var(--serif);
   font-size: 19px;
 }
-.site-nav { display: flex; align-items: center; gap: clamp(14px, 2.2vw, 30px); }
+.site-nav { display: flex; align-items: center; gap: clamp(12px, 1.6vw, 24px); flex-wrap: wrap; }
 .site-nav a {
   padding: 26px 0 23px;
   border-bottom: 3px solid transparent;
@@ -287,6 +287,28 @@ code { font-size: .9em; }
 .section-content h3 { font-family: var(--serif); font-size: 17px; font-weight: 600; }
 .section-content > p { margin: 0 0 17px; color: #52615f; font-size: 13px; }
 .section-content code, .check-list code, .inline-note code { overflow-wrap: anywhere; color: #155a55; }
+.lesson div.highlighter-rouge {
+  min-width: 0;
+  margin: 20px 0;
+  border: 1px solid #b6c4bb;
+  background: #edf2eb;
+}
+.lesson .highlighter-rouge pre {
+  margin: 0;
+  padding: 18px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.8;
+  tab-size: 4;
+}
+.lesson .highlighter-rouge pre code { color: #173338; overflow-wrap: normal; }
+.lesson .highlighter-rouge .c1, .lesson .highlighter-rouge .cm { color: #52615f; }
+.lesson .highlighter-rouge .k, .lesson .highlighter-rouge .kd { color: #843e23; }
+.lesson .highlighter-rouge .s, .lesson .highlighter-rouge .s1, .lesson .highlighter-rouge .s2 { color: #155a55; }
+.lesson > p { color: #52615f; }
+.section-content a, .lesson > p a { color: var(--teal-dark); text-underline-offset: 3px; overflow-wrap: anywhere; }
+.lesson-toc { display: flex; flex-wrap: wrap; gap: 10px 20px; margin: 20px 0 35px; padding: 16px 20px; border: 1px solid var(--line); background: var(--teal-wash); }
+.lesson-toc a { color: var(--teal-dark); font-size: 13px; }
 .flow-list { border-top: 1px solid var(--line); }
 .flow-item { display: grid; grid-template-columns: 33px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 16px 0; border-bottom: 1px solid var(--line); }
 .flow-number { display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid var(--teal); color: var(--teal-dark); font-family: var(--mono); font-size: 10px; }
@@ -313,6 +335,7 @@ tbody th { min-width: 110px; color: var(--ink); font-weight: 700; }
 .copy-button { padding: 5px 10px; border: 1px solid #73877e; background: transparent; color: #fff; cursor: pointer; font-family: var(--sans); font-size: 10px; }
 .copy-button:hover { background: #31514d; }
 .code-frame pre { overflow-x: auto; margin: 0; padding: 16px; color: #edf2e8; font-size: 11px; line-height: 1.75; tab-size: 2; }
+.code-frame pre code { color: inherit; }
 .numbered-steps { margin: 19px 0; padding: 0; list-style: none; counter-reset: steps; }
 .numbered-steps li { position: relative; min-height: 44px; margin: 0 0 8px; padding: 0 0 12px 42px; border-bottom: 1px solid var(--line); counter-increment: steps; }
 .numbered-steps li::before { position: absolute; top: 1px; left: 0; color: var(--orange); content: "0" counter(steps); font-family: var(--mono); font-size: 11px; font-weight: 700; }

@@ -1,14 +1,14 @@
 ---
 layout: default
-title: 04 改善を続ける
+title: 06 失敗ケースから改善
 description: Foundry Hosted Agent の失敗ケースを調査し、固定データの評価で改善を確認して本番へ反映する反復手順です。
 main_class: lesson
 permalink: /improvement/
 ---
 
-<div class="lesson-kicker"><span>04</span><span>IMPROVEMENT</span><span>—</span><span>測定から反映まで</span></div>
+<div class="lesson-kicker"><span>06</span><span>IMPROVEMENT</span><span>—</span><span>測定から反映まで</span></div>
 
-# 点数を追うのではなく、<br>失敗の理由を直す。
+# 不合格の証拠から修正箇所を決め、再評価する
 
 <p class="lesson-lead">改善ループは「同じデータで測る」だけではありません。失敗した実応答とツール履歴を調べ、原因をシステムの該当箇所へ割り当て、変更後に同じ条件で再評価します。品質ゲートを通過しても、未見入力の品質が保証されるわけではありません。</p>
 
@@ -56,6 +56,21 @@ permalink: /improvement/
 </div>
 
 原因調査では、ページ未選択でツールが始まる、複数の検索結果を一部しか取得しない、攻撃検出時の通知が抜ける、PowerPoint の必須引数が不足する、といったケースを実際の応答・ツール履歴で特定しました。指示文・スキルの手順や MCP 引数検証を直し、データセットやモデル、judge、しきい値は据え置きました。
+
+### 例: PowerPoint の枚数をプロンプトだけに任せない
+
+「合計3枚」を本文3枚と解釈すると、自動追加する表紙・出典と合わせて5枚になります。指示文を足すだけでなく、[CoworkTools.CreateDeckAsync](https://github.com/tokawa-ms/azure-updates-cowork-starter-demo/blob/main/src/UpdatesCowork.Agent/Tools/CoworkTools.cs) で利用者が依頼した総枚数と本文の数を照合します。次は不一致を扱う分岐の抜粋です。
+
+```csharp
+else if (deck?.Slides is { } slides && slides.Count + 2 != totalSlides)
+{
+    errors.Add($"totalSlides={totalSlides} の指定では deck.slides を {totalSlides - 2} 枚にしてください。表紙と出典は自動で2枚追加します。利用者の指定枚数を変えて回避してはいけません。");
+}
+```
+
+スキルには「合計 N 枚なら本文 N−2 枚」と書き、ツールは不一致を構造化エラーで返します。検査側も実ファイルの枚数などを確認します。ただし `totalSlides` 自体もモデルの引数なので、利用者の意図との一致はこの条件だけでは保証できません。元の依頼と完成ファイルを評価で照合する必要があります。
+
+指示、実行時の検証、評価を分けると、ツールを修正した結果を judge の点数だけに頼らず確認できます。
 
 <aside class="callout callout-caution">
   <span class="callout-label">比較の限界</span>
@@ -119,6 +134,6 @@ permalink: /improvement/
 </section>
 
 <nav class="lesson-next" aria-label="章の移動">
-  <a href="{{ '/integration/' | relative_url }}"><small>前の章 / 03</small><span>アプリへ組み込む</span></a>
+  <a href="{{ '/evaluation/' | relative_url }}"><small>前の章 / 05</small><span>品質評価を自動化する</span></a>
   <a class="next-link" href="{{ '/' | relative_url }}"><small>学習ガイド / END</small><span>トップへ戻る <b aria-hidden="true">→</b></span></a>
 </nav>

@@ -8,7 +8,7 @@ permalink: /architecture/
 
 <div class="lesson-kicker"><span>01</span><span>ARCHITECTURE</span><span>—</span><span>境界と責務</span></div>
 
-# 画面、エージェント、<br>業務ツールを分ける。
+# 実装を追うために、システムの境界を確認する
 
 <p class="lesson-lead">ブラウザーは画面と利用者の操作を担当します。Hosted Agent の呼び出し、権限確認、成果物の持ち主確認はサーバー側の BFF が担います。エージェントのツールは限定した業務機能だけを実行します。</p>
 
@@ -96,5 +96,5 @@ permalink: /architecture/
 
 <nav class="lesson-next" aria-label="章の移動">
   <a href="{{ '/' | relative_url }}"><small>学習ガイド</small><span>トップへ戻る</span></a>
-  <a class="next-link" href="{{ '/evaluation/' | relative_url }}"><small>次の章 / 02</small><span>Foundry で評価する <b aria-hidden="true">→</b></span></a>
+  <a class="next-link" href="{{ '/implementation/' | relative_url }}"><small>次の章 / 02</small><span>Agent Framework で実装する <b aria-hidden="true">→</b></span></a>
 </nav>

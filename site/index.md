@@ -1,7 +1,7 @@
 ---
 layout: default
 title: 学習ガイド
-description: Azure Updates Cowork の構成、Foundry 評価、Hosted Agent の統合と改善を学びます。
+description: C# の実装から Hosted Agent のホスト、Web 統合、自動品質評価まで、ソースと実行手順で学びます。
 main_class: home
 permalink: /
 ---
@@ -9,37 +9,39 @@ permalink: /
 <section class="hero" markdown="1">
 <div class="hero-copy" markdown="1">
 
-<p class="eyebrow"><span class="eyebrow-line"></span> LEARNING GUIDE / 01—04</p>
+<p class="eyebrow"><span class="eyebrow-line"></span> LEARNING GUIDE / 01—06</p>
 
-# Hosted Agent を、<br>アプリの仕事の流れにする。
+# C# でエージェントを作り、<br>Web から使い、品質を測る
 
-<p class="hero-lead">構成を読み、固定データで品質を確かめ、自社アプリから安全に呼び出す。Azure Updates Cowork の実装と評価記録をたどりながら、エージェントを改善する一連の手順を学びます。</p>
+<p class="hero-lead">Agent Framework の実装、Foundry Hosted Agent のホスト、BFF からのストリーミング、GitHub Actions での品質ゲート。Azure Updates Cowork の実コードと実行手順を使い、要約と資料作成が動くまでを追います。</p>
 
 <a class="button button-primary" href="{{ '/architecture/' | relative_url }}">学習を始める <span aria-hidden="true">→</span></a>
 
 </div>
 <div class="hero-index">
-  <div class="index-heading"><span>LEARNING PATH</span><span>全 4 章</span></div>
+  <div class="index-heading"><span>LEARNING PATH</span><span>全 6 章</span></div>
   <a href="{{ '/architecture/' | relative_url }}"><span class="index-number">01</span><span>システムの境界を読む</span><span class="index-arrow">↗</span></a>
-  <a href="{{ '/evaluation/' | relative_url }}"><span class="index-number">02</span><span>同じ条件で品質を測る</span><span class="index-arrow">↗</span></a>
-  <a href="{{ '/integration/' | relative_url }}"><span class="index-number">03</span><span>アプリから Hosted Agent を呼ぶ</span><span class="index-arrow">↗</span></a>
-  <a href="{{ '/improvement/' | relative_url }}"><span class="index-number">04</span><span>結果から次の変更を決める</span><span class="index-arrow">↗</span></a>
+  <a href="{{ '/implementation/' | relative_url }}"><span class="index-number">02</span><span>Agent Framework で実装する</span><span class="index-arrow">↗</span></a>
+  <a href="{{ '/hosting/' | relative_url }}"><span class="index-number">03</span><span>Hosted Agent でホストする</span><span class="index-arrow">↗</span></a>
+  <a href="{{ '/integration/' | relative_url }}"><span class="index-number">04</span><span>Web アプリへ組み込む</span><span class="index-arrow">↗</span></a>
+  <a href="{{ '/evaluation/' | relative_url }}"><span class="index-number">05</span><span>品質評価を自動化する</span><span class="index-arrow">↗</span></a>
+  <a href="{{ '/improvement/' | relative_url }}"><span class="index-number">06</span><span>失敗ケースから改善する</span><span class="index-arrow">↗</span></a>
   <div class="index-foot"><span class="status-dot"></span> ソースと実行記録に基づく教材</div>
 </div>
 <div class="hero-stamp" aria-hidden="true">BUILD<br>MEASURE<br>REFINE</div>
 </section>
 
 <section class="intro-band">
-  <div><span class="mini-label">目的</span><p>デモの機能だけでなく、業務アプリへ移すときに必要な境界・権限・評価を理解する。</p></div>
+  <div><span class="mini-label">到達点</span><p>要約を呼び出し、Word を受け取り、変更後の応答を自動評価する手順を理解する。</p></div>
   <div><span class="mini-label">対象</span><p>.NET、Microsoft Foundry、Agent Framework を使うアプリ開発者。</p></div>
-  <div><span class="mini-label">読み方</span><p>章の順に進み、各章末の確認項目を実装とレポートで確かめる。</p></div>
+  <div><span class="mini-label">読み方</span><p>実コードの抜粋 → 設定と実行 → 期待する結果の順で確認する。既存環境の再配置は必須ではありません。</p></div>
 </section>
 
 <section class="section-block">
 <div class="section-heading">
-  <p class="eyebrow">THE SYSTEM, IN FOUR QUESTIONS</p>
-  <h2>知りたいことから章を選ぶ</h2>
-  <p>一つの完成形を真似するのではなく、なぜその責務を分けたのか、何を証拠に改善と判断するのかを追います。</p>
+  <p class="eyebrow">SOURCE CODE AND HANDS-ON</p>
+  <h2>実装する順に読み進める</h2>
+  <p>各章のコードには元ファイルへのリンクがあります。抜粋の前後や関連テストまで追い、別の業務へ移すときに何を変更するか判断できます。</p>
 </div>
 <div class="chapter-grid">
   <a class="chapter-card" href="{{ '/architecture/' | relative_url }}">
@@ -48,20 +50,32 @@ permalink: /
     <p>ブラウザー、BFF、Hosted Agent、MCP、セッションファイルを役割ごとに読み解きます。</p>
     <span class="card-link">構成図とトレースを見る <span aria-hidden="true">→</span></span>
   </a>
-  <a class="chapter-card" href="{{ '/evaluation/' | relative_url }}">
-    <span class="card-top"><span>02 / EVALUATION</span><span class="card-symbol">↗</span></span>
-    <h3>Foundry の評価をどう読むか</h3>
-    <p>評価用 Agent の実応答を採点し、クラウドの評価器とローカル品質ゲートを使い分けます。</p>
-    <span class="card-link">実行手順と結果の見方 <span aria-hidden="true">→</span></span>
+  <a class="chapter-card" href="{{ '/implementation/' | relative_url }}">
+    <span class="card-top"><span>02 / IMPLEMENTATION</span><span class="card-symbol">↗</span></span>
+    <h3>Agent Framework で何を書くか</h3>
+    <p>AsAIAgent、SKILL.md、MCP ツール、ミドルウェアを組み合わせ、ローカルで実応答を確認します。</p>
+    <span class="card-link">C# とローカル演習 <span aria-hidden="true">→</span></span>
+  </a>
+  <a class="chapter-card" href="{{ '/hosting/' | relative_url }}">
+    <span class="card-top"><span>03 / HOSTING</span><span class="card-symbol">↗</span></span>
+    <h3>Hosted Agent としてどう動かすか</h3>
+    <p>Responses のホスト登録、Dockerfile、azure.yaml、実行 ID、セッションの保存領域を確認します。</p>
+    <span class="card-link">起動コードと配置設定 <span aria-hidden="true">→</span></span>
   </a>
   <a class="chapter-card" href="{{ '/integration/' | relative_url }}">
-    <span class="card-top"><span>03 / APPLICATION</span><span class="card-symbol">↗</span></span>
+    <span class="card-top"><span>04 / APPLICATION</span><span class="card-symbol">↗</span></span>
     <h3>自社アプリにどう組み込むか</h3>
-    <p>マネージド ID、会話、ページ文脈、ストリーミング、成果物の受け渡しを確認します。</p>
-    <span class="card-link">統合の境界を確認する <span aria-hidden="true">→</span></span>
+    <p>TokenCredential、要求 JSON、会話 ID、SSE と成果物台帳を、BFF のコードに沿って実装します。</p>
+    <span class="card-link">BFF の実装と確認手順 <span aria-hidden="true">→</span></span>
+  </a>
+  <a class="chapter-card" href="{{ '/evaluation/' | relative_url }}">
+    <span class="card-top"><span>05 / EVALUATION</span><span class="card-symbol">↗</span></span>
+    <h3>品質評価をどう自動化するか</h3>
+    <p>JSONL のケース、Foundry 評価器へのマッピング、決定的検査、Actions の終了コードまで追います。</p>
+    <span class="card-link">評価コードと CI 設定 <span aria-hidden="true">→</span></span>
   </a>
   <a class="chapter-card" href="{{ '/improvement/' | relative_url }}">
-    <span class="card-top"><span>04 / IMPROVEMENT</span><span class="card-symbol">↗</span></span>
+    <span class="card-top"><span>06 / IMPROVEMENT</span><span class="card-symbol">↗</span></span>
     <h3>改善をどう繰り返すか</h3>
     <p>失敗ケースを分類し、変更を限定して再評価し、本番へ反映するサイクルを学びます。</p>
     <span class="card-link">改善ループをたどる <span aria-hidden="true">→</span></span>

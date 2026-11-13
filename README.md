@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/">学習ガイド: 構成、Foundry 評価、Hosted Agent の統合と改善</a>
+  <a href="https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/">学習ガイド: C# のエージェント実装、ホスト、Web 統合、自動品質評価</a>
 </p>
 
 <p align="center">
@@ -184,6 +184,8 @@ Deploy to Azure ボタンはまだ掲載していません。公開リポジト�
 | [事前検証](preflight-report.md)                         | Bicepと初回what-ifの結果                                                  |
 
 学習ガイドは `site/` の Markdown を Jekyll でビルドし、GitHub Actions から GitHub Pages へ公開します。初回公開前に、リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に設定してください。公開後の URL は `https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/` です。
+
+ガイドは「構成 → Agent Framework の実装 → Hosted Agent のホスト → Web 統合 → 自動品質評価 → 改善」の6章です。実コードの抜粋と元ファイルへのリンク、ローカル実行例、確認する結果を掲載しています。配置や有料評価の実行は別途前提条件を満たしてから行い、GitHub Actions の OIDC など未確認の項目は検証済みの結果と区別しています。
 
 ## ライセンス
 
