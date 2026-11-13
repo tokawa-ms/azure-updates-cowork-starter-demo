@@ -36,6 +36,10 @@ Explore Azure updates in a dedicated viewer alongside a chat that asks a Microso
 
 ## Architecture and usage notes
 
+![Azure Updates Cowork architecture overview](docs/diagrams/01-architecture-overview-en.png)
+
+Diagrams of the processing flows, identities and roles, defense in depth, observability, evaluation, and deployment are collected in [Architecture and flow diagrams](docs/diagrams/README-en.md).
+
 Five business tools are provided by a private MCP server inside the Agent container. The viewer and document-generation workflow have been verified in an existing development environment. This is a low-volume learning sample, not a complete production system. See the [design](docs/design-en.md) and [deployment record](docs/notes/deploy-en.md) for architecture and limitations.
 
 > [!IMPORTANT]
@@ -165,6 +169,7 @@ Before publication, review the update site's and data API's terms and establish 
 | Document | Contents |
 |---|---|
 | [Design](docs/design-en.md) | Architecture and contracts |
+| [Architecture and flow diagrams](docs/diagrams/README-en.md) | Architecture, flows, security, observability, evaluation, and deployment diagrams (draw.io and PNG) |
 | [Implementation plan](docs/implementation-plan-en.md) | P0–P9 acceptance criteria |
 | [Site survey](docs/notes/site-survey-en.md) | Why data API forwarding was needed |
 | [Local integration and observability](docs/notes/local-integration-en.md) | API, generated document, conversation, and trace verification |

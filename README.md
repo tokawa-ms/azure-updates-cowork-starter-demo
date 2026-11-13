@@ -36,6 +36,10 @@ Azure の更新情報の専用ビューアーとチャットを並べ、Microsof
 
 ## 構成と利用上の注意
 
+![Azure Updates Cowork の全体構成](docs/diagrams/01-architecture-overview.png)
+
+処理の流れ、ID とロール、多層の防御、観測、評価、配置の図は[構成図とフロー図](docs/diagrams/README.md)にまとめています。
+
 5つの業務ツールは Agent コンテナー内の非公開 MCP サーバーが提供します。既存の開発環境で、専用ビューアーと資料作成までの動作を確認しています。学習用の少量利用を前提としたサンプルであり、本番運用の完成形ではありません。[設計書](docs/design.md)と[デプロイ記録](docs/notes/deploy.md)に構成と制約を記載しています。
 
 > [!IMPORTANT]
@@ -165,6 +169,7 @@ Deploy to Azure ボタンはまだ掲載していません。公開リポジト�
 | 資料 | 内容 |
 |---|---|
 | [設計書](docs/design.md) | アーキテクチャと契約 |
+| [構成図とフロー図](docs/diagrams/README.md) | 全体構成、処理の流れ、セキュリティ、観測、評価、配置の図 (draw.io と PNG) |
 | [実装計画](docs/implementation-plan.md) | P0〜P9の受け入れ条件 |
 | [サイト調査](docs/notes/site-survey.md) | データAPIの中継が必要な理由 |
 | [ローカル統合と観測](docs/notes/local-integration.md) | API、生成資料、会話、トレースの確認結果 |
