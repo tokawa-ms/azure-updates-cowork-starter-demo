@@ -182,7 +182,6 @@ Deploy to Azure ボタンはまだ掲載していません。公開リポジト�
 | [固定データ評価](docs/notes/evaluation.md)              | 実応答の収集、Foundryでの採点、品質ゲート                                 |
 | [デプロイ調査](docs/notes/deploy.md)                    | Azureの展開結果、Q番号、残る制約                                          |
 | [事前検証](preflight-report.md)                         | Bicepと初回what-ifの結果                                                  |
-| [公開前の情報確認](docs/notes/public-release-review.md) | 匿名化した情報、履歴の残存情報、公開前の判断                              |
 
 学習ガイドは `site/` の Markdown を Jekyll でビルドし、GitHub Actions から GitHub Pages へ公開します。初回公開前に、リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に設定してください。公開後の URL は `https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/` です。
 

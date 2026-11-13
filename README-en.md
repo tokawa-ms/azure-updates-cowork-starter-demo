@@ -182,7 +182,6 @@ Before publication, review the update site's and data API's terms and establish 
 | [Fixed-data evaluation](docs/notes/evaluation-en.md) | Real response collection, Foundry scoring, and quality gates |
 | [Deployment investigation](docs/notes/deploy-en.md) | Azure deployment results, Q items, and remaining limitations |
 | [Preflight validation](preflight-report-en.md) | Bicep and initial what-if results |
-| [Pre-publication information review](docs/notes/public-release-review-en.md) | Sanitized information, historical disclosures, and publication decisions |
 
 The learning guide is built from the Markdown files in `site/` using Jekyll and published to GitHub Pages through GitHub Actions. Before the first publication, set the repository's **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. The published URL is `https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/`.
 
