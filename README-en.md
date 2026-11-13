@@ -1,7 +1,8 @@
 <h1 align="center">Azure Updates Cowork</h1>
 
 <p align="center">
-  A learning sample for summarizing Azure updates and creating Word and PowerPoint documents
+  Learn to build a Microsoft Foundry Hosted Agent, set up and use telemetry and evaluation infrastructure, and continuously improve the agent based on evaluation results.
+  The sample agent summarizes Azure updates and creates Word and PowerPoint documents.
 </p>
 
 <p align="center">
@@ -9,6 +10,10 @@
   <a href="docs/design-en.md"><img src="https://img.shields.io/badge/Microsoft_Foundry-Hosted_Agent-0078D4?style=flat-square" alt="Microsoft Foundry Hosted Agent"></a>
   <a href="docs/notes/observability-en.md"><img src="https://img.shields.io/badge/MCP-Streamable_HTTP-0F766E?style=flat-square" alt="MCP Streamable HTTP"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-64748B?style=flat-square" alt="License: MIT"></a>
+</p>
+
+<p align="center">
+  <a href="https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/">Learning guide: architecture, Foundry evaluation, and Hosted Agent integration and improvement</a>
 </p>
 
 <p align="center">
@@ -178,6 +183,8 @@ Before publication, review the update site's and data API's terms and establish 
 | [Deployment investigation](docs/notes/deploy-en.md) | Azure deployment results, Q items, and remaining limitations |
 | [Preflight validation](preflight-report-en.md) | Bicep and initial what-if results |
 | [Pre-publication information review](docs/notes/public-release-review-en.md) | Sanitized information, historical disclosures, and publication decisions |
+
+The learning guide is built from the Markdown files in `site/` using Jekyll and published to GitHub Pages through GitHub Actions. Before the first publication, set the repository's **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. The published URL is `https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/`.
 
 ## License
 

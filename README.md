@@ -1,7 +1,7 @@
 <h1 align="center">Azure Updates Cowork</h1>
 
 <p align="center">
-  Azure の更新情報を要約し、Word・PowerPoint を作成する学習用サンプル
+  Azure の更新情報を要約し、Word・PowerPoint を作成するエージェントを題材に、Microsoft Foundry Hosted Agent の構築から、テレメトリと評価基盤の整備・活用、評価結果に基づく継続的な改善までを学ぶサンプルコードです。
 </p>
 
 <p align="center">
@@ -32,11 +32,11 @@ Azure の更新情報の専用ビューアーとチャットを並べ、Microsof
 
 ## 主な機能
 
-| 機能 | できること |
-|---|---|
-| 更新の検索・要約 | 更新を検索・選択し、公式URLを出典とした要約や関連更新の比較を依頼 |
-| Word・PowerPoint 作成 | 同じ会話で資料を作成し、チャット内の成果物カードからダウンロード |
-| トレースと品質評価 | WebからMCP・Office生成までを追跡し、別Agentと固定30件で品質を検査 |
+| 機能                  | できること                                                        |
+| --------------------- | ----------------------------------------------------------------- |
+| 更新の検索・要約      | 更新を検索・選択し、公式URLを出典とした要約や関連更新の比較を依頼 |
+| Word・PowerPoint 作成 | 同じ会話で資料を作成し、チャット内の成果物カードからダウンロード  |
+| トレースと品質評価    | WebからMCP・Office生成までを追跡し、別Agentと固定30件で品質を検査 |
 
 ## 構成と利用上の注意
 
@@ -65,12 +65,12 @@ HTTP/MCP、Office生成、ファイル保存までのトレースを記録しま
 
 ### 前提条件
 
-| 必要なもの | 用途 |
-|---|---|
-| .NET 10 SDK | ビルドとローカル実行 |
-| Azure CLI | プロジェクトを呼ぶ権限のあるアカウントで `az login` |
-| 既存のFoundryプロジェクトとモデル | 関数呼び出しに対応したモデルデプロイ |
-| Docker (任意) | Aspire Dashboardの起動 |
+| 必要なもの                        | 用途                                                |
+| --------------------------------- | --------------------------------------------------- |
+| .NET 10 SDK                       | ビルドとローカル実行                                |
+| Azure CLI                         | プロジェクトを呼ぶ権限のあるアカウントで `az login` |
+| 既存のFoundryプロジェクトとモデル | 関数呼び出しに対応したモデルデプロイ                |
+| Docker (任意)                     | Aspire Dashboardの起動                              |
 
 ### 起動の準備
 
@@ -170,18 +170,18 @@ Deploy to Azure ボタンはまだ掲載していません。公開リポジト�
 
 ## ドキュメント
 
-| 資料 | 内容 |
-|---|---|
-| [設計書](docs/design.md) | アーキテクチャと契約 |
-| [構成図とフロー図](docs/diagrams/README.md) | 全体構成、処理の流れ、セキュリティ、観測、評価、配置の図 (draw.io と PNG) |
-| [実装計画](docs/implementation-plan.md) | P0〜P9の受け入れ条件 |
-| [サイト調査](docs/notes/site-survey.md) | データAPIの中継が必要な理由 |
-| [ローカル統合と観測](docs/notes/local-integration.md) | API、生成資料、会話、トレースの確認結果 |
-| [MCPと観測](docs/notes/observability.md) | トレースの親子関係、確認手順、本文記録の範囲 |
-| [固定データ評価](docs/notes/evaluation.md) | 実応答の収集、Foundryでの採点、品質ゲート |
-| [デプロイ調査](docs/notes/deploy.md) | Azureの展開結果、Q番号、残る制約 |
-| [事前検証](preflight-report.md) | Bicepと初回what-ifの結果 |
-| [公開前の情報確認](docs/notes/public-release-review.md) | 匿名化した情報、履歴の残存情報、公開前の判断 |
+| 資料                                                    | 内容                                                                      |
+| ------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [設計書](docs/design.md)                                | アーキテクチャと契約                                                      |
+| [構成図とフロー図](docs/diagrams/README.md)             | 全体構成、処理の流れ、セキュリティ、観測、評価、配置の図 (draw.io と PNG) |
+| [実装計画](docs/implementation-plan.md)                 | P0〜P9の受け入れ条件                                                      |
+| [サイト調査](docs/notes/site-survey.md)                 | データAPIの中継が必要な理由                                               |
+| [ローカル統合と観測](docs/notes/local-integration.md)   | API、生成資料、会話、トレースの確認結果                                   |
+| [MCPと観測](docs/notes/observability.md)                | トレースの親子関係、確認手順、本文記録の範囲                              |
+| [固定データ評価](docs/notes/evaluation.md)              | 実応答の収集、Foundryでの採点、品質ゲート                                 |
+| [デプロイ調査](docs/notes/deploy.md)                    | Azureの展開結果、Q番号、残る制約                                          |
+| [事前検証](preflight-report.md)                         | Bicepと初回what-ifの結果                                                  |
+| [公開前の情報確認](docs/notes/public-release-review.md) | 匿名化した情報、履歴の残存情報、公開前の判断                              |
 
 学習ガイドは `site/` の Markdown を Jekyll でビルドし、GitHub Actions から GitHub Pages へ公開します。初回公開前に、リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に設定してください。公開後の URL は `https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/` です。
 
