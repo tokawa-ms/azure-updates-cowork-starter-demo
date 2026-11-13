@@ -5,6 +5,7 @@
 - Version: 1.1 (2026-11-12, updated for the dedicated viewer, MCP, and fixed-data evaluation)
 - Prerequisites: the design is `docs/design.md` (English: [design-en.md](design-en.md)), and Copilot's rules are `.github/copilot-instructions.md`
 - How to proceed: implement one phase per branch and PR. In the PR description, include the checklist of acceptance criteria and the results of the [To verify] items you checked (numbers from section 14.2 of the design document).
+- BFF: Backend for Frontend, a web API that receives requests from the screens and calls server-side services such as the agent.
 
 | Phase | Content | Main sections used | Azure required? |
 |---|---|---|---|

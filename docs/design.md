@@ -57,7 +57,7 @@
 **A. Hosted Agentをサイトに組み込む**
 
 - Hosted AgentをC#で書き、ローカル(localhost:8088)とFoundryの両方で同じコードを動かせる。
-- Webアプリのサーバー側(BFF)からマネージドIDでHosted Agentを呼び、応答をストリーミングで画面に流せる。
+- Webアプリの画面向けサーバー側API(BFF: Backend for Frontend)からマネージドIDでHosted Agentを呼び、応答をストリーミングで画面に流せる。
 - ブラウザから直接エージェントを呼ばない理由(利用者ごとのトークン、CORS、利用量の制御)を説明できる。
 - データAPIから専用ビューアーを作り、無害化した本文を表示し、選択した更新IDだけをエージェントの取得処理につなげられる。
 
@@ -415,7 +415,7 @@ azure-updates-cowork/
 
 ## 5. コンポーネント設計
 
-### 5.2 web (画面とBFF)
+### 5.2 web (画面と画面向けAPI)
 
 #### 画面
 
@@ -444,7 +444,7 @@ JavaScriptのモジュール構成は次のとおり。
 - `js/sse.js`: `fetch`と`ReadableStream`でPOSTのSSEを読む関数`postSse(url, body, onEvent, signal)`。`event:`と`data:`の行を組み立て、`ping`は無視する。
 - `js/render.js`: Markdown表示、進行状況、ツールの動き、承認カード、成果物カード、学習モードの表示。
 
-#### BFFのAPI
+#### 画面向けAPI
 
 | メソッドとパス | 内容 | 応答 |
 |---|---|---|

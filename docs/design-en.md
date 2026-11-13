@@ -57,7 +57,7 @@ The aim is that people who read and run this sample can explain the following. T
 **A. Embedding a Hosted Agent in a site**
 
 - Write a Hosted Agent in C# and run the same code both locally (localhost:8088) and in Foundry.
-- Call the Hosted Agent from the web app's server side (BFF) with a managed identity, and stream the response to the screen.
+- Call the Hosted Agent with a managed identity from the web app's server-side API (BFF: Backend for Frontend), and stream the response to the screen.
 - Explain why the browser does not call the agent directly (per-user tokens, CORS, usage control).
 - Build a dedicated viewer from the data API, display sanitized bodies, and connect only the selected update ID to the agent's fetch processing.
 
@@ -415,7 +415,7 @@ Pin the versions verified at the time of research. For those marked "latest stab
 
 ## 5. Component design
 
-### 5.2 web (screens and BFF)
+### 5.2 web (screens and server-side API)
 
 #### Screens
 
@@ -444,7 +444,7 @@ The JavaScript module structure is as follows.
 - `js/sse.js`: The function `postSse(url, body, onEvent, signal)` that reads POST SSE with `fetch` and `ReadableStream`. Assembles `event:` and `data:` lines and ignores `ping`.
 - `js/render.js`: Markdown display, progress, tool activity, approval cards, artifact cards, and learning mode display.
 
-#### BFF API
+#### Server-side API
 
 | Method and path | Content | Response |
 |---|---|---|

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: 02 Foundry で評価
-description: Foundry の Evaluation を実行し、Portal の採点とリポジトリの品質ゲートを区別して読む手順です。
+description: 品質ゲートの価値と限界を理解し、Foundry 評価とローカル検査を実行・確認する手順です。
 main_class: lesson
 permalink: /evaluation/
 ---
@@ -10,7 +10,7 @@ permalink: /evaluation/
 
 # 評価の実行完了と、<br>品質の合格を分けて読む。
 
-<p class="lesson-lead">このリポジトリは、固定データで評価用 Hosted Agent を実行し、完全な応答を保存してから Foundry の評価器で採点します。Portal の評価結果は品質の一部です。ファイルや引用など、ローカルで検証する指標も合わせて読みます。</p>
+<p class="lesson-lead">同じ業務シナリオで応答、ツールの動き、生成ファイルを確認し、Agent の更新判断に使える根拠を残します。Foundry の評価だけでなく、ファイルや出典などの機械的な検査も組み合わせます。</p>
 
 <figure class="diagram" markdown="1">
 ![30件の固定データを評価用Hosted Agentに送り、応答を記録し、Foundryの3評価器とローカルの決定的な検査に渡す評価パイプライン]({{ '/assets/10-evaluation-pipeline.png' | relative_url }})
@@ -18,7 +18,29 @@ permalink: /evaluation/
 </figure>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">01 / BEFORE</div>
+<div class="section-marker">01 / PURPOSE</div>
+<div class="section-content" markdown="1">
+
+## 品質ゲートが揃える判断材料
+
+このゲートは、定義したケースの範囲で、回答の印象だけでなく業務処理が最後まで正しく行われたかを確認します。評価用 Agent と固定データを使うため、同じ条件で版ごとの結果を比べられます。
+
+<div class="metric-grid">
+  <article><span class="metric-number">01</span><h3>変更前後を比較</h3><p>固定したシナリオと基準を使い、Agent の版ごとの結果を追います。</p></article>
+  <article><span class="metric-number">02</span><h3>回答以外も確認</h3><p>ツールの実行、公式出典、実際に生成した Word・PowerPoint を調べます。</p></article>
+  <article><span class="metric-number">03</span><h3>改善の根拠を残す</h3><p>応答、検査結果、不合格理由をレポートに保存し、修正箇所を特定します。</p></article>
+</div>
+
+<aside class="callout callout-info">
+  <span class="callout-label">合格の意味</span>
+  <p>ゲート通過は、定義したケースと基準を満たしたという判断です。あらゆる入力や将来の応答が正しいことを保証するものではありません。</p>
+</aside>
+
+</div>
+</section>
+
+<section class="lesson-section" markdown="1">
+<div class="section-marker">02 / BEFORE</div>
 <div class="section-content" markdown="1">
 
 ## 実行前に揃えるもの
@@ -39,7 +61,7 @@ permalink: /evaluation/
 </section>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">02 / RUN</div>
+<div class="section-marker">03 / RUN</div>
 <div class="section-content" markdown="1">
 
 ## バージョンを固定して実行する
@@ -67,7 +89,7 @@ permalink: /evaluation/
 </section>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">03 / PORTAL</div>
+<div class="section-marker">04 / PORTAL</div>
 <div class="section-content" markdown="1">
 
 ## Foundry Portal で見るのは、クラウド評価の詳細
@@ -90,7 +112,7 @@ permalink: /evaluation/
 </section>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">04 / READ</div>
+<div class="section-marker">05 / READ</div>
 <div class="section-content" markdown="1">
 
 ## 集計の前に、分母と証拠を確かめる
@@ -100,6 +122,22 @@ permalink: /evaluation/
   <article><span class="metric-number">5</span><h3>ローカルの決定的検査</h3><p>ツール使用、出典、日本語、実成果物、攻撃への抵抗を確認します。基準は 100% です。</p></article>
   <article><span class="metric-number">0</span><h3>成功扱いにしない欠落</h3><p>未採点、実行失敗、欠落応答は合格に補完しません。明示的な対象外は合格と分けて記録します。</p></article>
 </div>
+
+## 30 件の実証結果と適用範囲
+
+2026 年 11 月 13 日の 30 件では、8 指標すべてが基準を満たしました。指示への適合と依頼の意図はそれぞれ 29 / 30、ツール選択は対象外 4 件を除いて 26 / 26、決定的検査の 5 指標はそれぞれ 30 / 30 でした。実際に生成した Word 5 件、PowerPoint 5 件も取得して検査しています。
+
+<aside class="callout callout-caution">
+  <span class="callout-label">結果の読み方</span>
+  <p>一部のケースは評価モデルの基準に達していませんが、基準未達を残したままでも合格率の基準を満たしたため、全体のゲートは通過しました。これは固定 30 件を使った 1 回の結果です。未見の入力や、繰り返し実行した場合の安定性までは保証しません。攻撃への検査も固定ケースに限られます。</p>
+</aside>
+
+<p class="inline-note">日本語の検査は URL を除いた文字の 30% 以上が日本語かを見る簡易判定で、文章の自然さや専門用語の適切さは評価しません。</p>
+
+<aside class="callout callout-info">
+  <span class="callout-label">実行頻度</span>
+  <p>通常のプルリクエスト検査はネットワークやモデルを使わない回帰テストです。モデル利用料が発生するフル評価は明示的に実行し、本番トラフィックの自動採点は行いません。GitHub Actions の手動実行ワークフローはありますが、GitHub 上での実行は認証設定を含めて未確認です。</p>
+</aside>
 
 | ファイル | 確認する内容 |
 |---|---|
