@@ -1,14 +1,14 @@
 ---
 layout: default
-title: 06 失敗ケースから改善
+title: "07 直す: 失敗ケースから改善"
 description: Foundry Hosted Agent の失敗ケースを調査し、固定データの評価で改善を確認して本番へ反映する反復手順です。
 main_class: lesson
 permalink: /improvement/
 ---
 
-<div class="lesson-kicker"><span>06</span><span>IMPROVEMENT</span><span>—</span><span>測定から反映まで</span></div>
+<div class="lesson-kicker"><span>07</span><span>IMPROVE</span><span>—</span><span>直す: 測定から反映まで</span></div>
 
-# 不合格の証拠から修正箇所を決め、再評価する
+# 不合格の証拠から修正箇所を決め、<br>再評価する
 
 <p class="lesson-lead">改善ループは「同じデータで測る」だけではありません。失敗した実応答とツール履歴を調べ、原因をシステムの該当箇所へ割り当て、変更後に同じ条件で再評価します。品質ゲートを通過しても、未見入力の品質が保証されるわけではありません。</p>
 
@@ -57,6 +57,35 @@ permalink: /improvement/
 
 原因調査では、ページ未選択でツールが始まる、複数の検索結果を一部しか取得しない、攻撃検出時の通知が抜ける、PowerPoint の必須引数が不足する、といったケースを実際の応答・ツール履歴で特定しました。指示文・スキルの手順や MCP 引数検証を直し、データセットやモデル、judge、しきい値は据え置きました。
 
+### 版ごとの推移
+
+同じ 30 件で評価と修正を繰り返しました。修正で別の指標が下がった版もあり、8 指標がすべて基準に届くまで本番には反映していません。
+
+<ol class="version-bars" aria-label="評価用エージェントの版ごとの、基準を満たした指標の数">
+  <li><span>v2</span><span class="bar" style="--value: 5"></span><b>5 / 8</b></li>
+  <li><span>v4</span><span class="bar" style="--value: 5"></span><b>5 / 8</b></li>
+  <li><span>v6</span><span class="bar" style="--value: 5"></span><b>5 / 8</b></li>
+  <li><span>v7</span><span class="bar" style="--value: 6"></span><b>6 / 8</b></li>
+  <li><span>v8</span><span class="bar" style="--value: 5"></span><b>5 / 8</b></li>
+  <li><span>v10</span><span class="bar" style="--value: 7"></span><b>7 / 8</b></li>
+  <li><span>v11</span><span class="bar" style="--value: 6"></span><b>6 / 8</b></li>
+  <li class="is-pass"><span>v12</span><span class="bar" style="--value: 8"></span><b>8 / 8</b></li>
+</ol>
+
+<p class="inline-note">評価用エージェントの版ごとに、基準を満たした指標の数を示しています。2026 年 11 月 12 日と 13 日に、採点まで完了した版だけを載せています。v9 は応答の収集中に止まったため、採点していません。</p>
+
+### 不合格の記録から、原因の層を特定する
+
+| 不合格の内容 | 記録から分かった原因 | 直した層 |
+|---|---|---|
+| 検索結果 2 件のうち、1 件の出典の欠落 | 比較の依頼に、1 件を要約するスキルを選んでいた | スキル |
+| 対象の未選択時の、仮の ID による取得 | 対象の確認より先に、スキルの開始を促す案内があった | スキルの案内 |
+| 攻撃文の検出後の、利用者への通知漏れ | 通知用の定型の文と、それを使う指示がなかった | ツールと指示文 |
+| 必須の引数の不足による、内部エラーでの終了 | 引数の不足を内部エラーとして返していた | ツールの検証 |
+| ページ情報があるのに「ID なし」と判定 | 評価器への入力から、ページ情報が抜けていた | 評価の入力 |
+
+最後の行は、エージェントではなく評価側の不具合です。直した内容は、エージェントの改善と区別して記録しています。
+
 ### 例: PowerPoint の枚数をプロンプトだけに任せない
 
 「合計3枚」を本文3枚と解釈すると、自動追加する表紙・出典と合わせて5枚になります。指示文を足すだけでなく、[CoworkTools.CreateDeckAsync](https://github.com/tokawa-ms/azure-updates-cowork-starter-demo/blob/main/src/UpdatesCowork.Agent/Tools/CoworkTools.cs) で利用者が依頼した総枚数と本文の数を照合します。次は不一致を扱う分岐の抜粋です。
@@ -77,7 +106,7 @@ else if (deck?.Slides is { } slides && slides.Count + 2 != totalSlides)
   <p>v6 と v12 の間で評価入力の欠落修正やローカル検査の強化も行ったため、完全に同じ採点処理の前後比較ではありません。指標の改善を Agent の変更だけに帰属させないでください。v12 は固定 30 件での一回の合格であり、未見データや反復実行での安定性は保証しません。</p>
 </aside>
 
-<a class="text-link" href="https://github.com/tokawa-ms/azure-updates-cowork-starter-demo/blob/main/docs/notes/evaluation.md">v6〜v12 の失敗分析・評価履歴を読む <span aria-hidden="true">↗</span></a>
+<a class="text-link" href="https://github.com/tokawa-ms/azure-updates-cowork-starter-demo/blob/main/docs/notes/evaluation.md">v6 から v12 の失敗分析・評価履歴を読む <span aria-hidden="true">↗</span></a>
 
 </div>
 </section>
@@ -111,7 +140,7 @@ else if (deck?.Slides is { } slides && slides.Count + 2 != totalSlides)
   <article class="muted-panel"><p class="eyebrow">別途設計が必要</p><h3>本番トラフィックの継続評価</h3><ul><li>ユーザー入力・応答の記録と同意</li><li>本文の保護、閲覧権限、保持期間</li><li>採点頻度、judge の費用、誤判定対応</li><li>運用担当と品質ゲートの変更承認</li></ul></article>
 </div>
 
-このリポジトリでは継続評価ルールを作成・有効化していません。アプリ側で Agent の本文記録を無効にしても、Foundry 基盤が記録する内容まで無効になるとは限りません。実環境で確認した保存範囲と組織ポリシーを先に照合してください。
+このリポジトリでは継続評価ルールを作成・有効化していません。アプリ側で Agent の本文記録を無効にしても、Foundry 基盤が記録する内容まで無効になるとは限りません。実環境で確認した保存範囲と組織ポリシーを先に照合してください。本番トラフィックの採点と、改善の自動化の設計は第 8 章で扱います。
 
 </div>
 </section>
@@ -134,6 +163,6 @@ else if (deck?.Slides is { } slides && slides.Count + 2 != totalSlides)
 </section>
 
 <nav class="lesson-next" aria-label="章の移動">
-  <a href="{{ '/evaluation/' | relative_url }}"><small>前の章 / 05</small><span>品質評価を自動化する</span></a>
-  <a class="next-link" href="{{ '/' | relative_url }}"><small>学習ガイド / END</small><span>トップへ戻る <b aria-hidden="true">→</b></span></a>
+  <a href="{{ '/evaluation/' | relative_url }}"><small>前の章 / 06</small><span>測る: 品質評価を自動化する</span></a>
+  <a class="next-link" href="{{ '/automation/' | relative_url }}"><small>次の章 / 08</small><span>回し続ける: 改善を自動化する <b aria-hidden="true">→</b></span></a>
 </nav>

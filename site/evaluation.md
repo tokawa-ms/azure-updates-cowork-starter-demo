@@ -1,14 +1,14 @@
 ---
 layout: default
-title: 05 品質評価を自動化
+title: "06 測る: 品質評価を自動化"
 description: 品質ゲートの価値と限界を理解し、Foundry 評価とローカル検査を実行・確認する手順です。
 main_class: lesson
 permalink: /evaluation/
 ---
 
-<div class="lesson-kicker"><span>05</span><span>EVALUATION</span><span>—</span><span>同じ条件で測る</span></div>
+<div class="lesson-kicker"><span>06</span><span>EVALUATE</span><span>—</span><span>測る: 同じ条件で測る</span></div>
 
-# 実応答を採点し、品質ゲートを自動実行する
+# 実応答を採点し、<br>品質ゲートを自動実行する
 
 <p class="lesson-lead">同じ業務シナリオで応答、ツールの動き、生成ファイルを確認し、Agent の更新判断に使える根拠を残します。Foundry の評価だけでなく、ファイルや出典などの機械的な検査も組み合わせます。</p>
 
@@ -18,7 +18,7 @@ permalink: /evaluation/
 
 <figure class="diagram" markdown="1">
 ![30件の固定データを評価用Hosted Agentに送り、応答を記録し、Foundryの3評価器とローカルの決定的な検査に渡す評価パイプライン]({{ '/assets/10-evaluation-pipeline.png' | relative_url }})
-<figcaption><span>図 10</span> 本番とは別の評価用 Agent と固定 fixture を使います。継続評価や本番トラフィックの自動採点は有効にしていません。</figcaption>
+<figcaption><span>図 10</span> 本番とは別の評価用 Agent と固定 fixture を使います。継続評価や本番トラフィックの自動採点は有効にしていません。本番での採点は第 8 章で設計します。</figcaption>
 </figure>
 
 <section class="lesson-section" markdown="1">
@@ -115,10 +115,10 @@ foreach (var name in new[] { "task_adherence", "intent_resolution", "tool_call_a
 ## 実行前に揃えるもの
 
 <ul class="check-list">
-  <li><span>配置済みの評価用 Agent</span><code>updates-cowork-eval</code> の特定バージョンを指定します。</li>
-  <li><span>評価用の Foundry プロジェクト</span>Agent と judge model を使える Entra ID 権限が必要です。</li>
-  <li><span>Azure CLI のサインイン</span>コマンド実行者の ID で認証します。API キーは使いません。</li>
-  <li><span>秘密情報を含まない固定データ</span>このサンプルは更新情報 fixture と 30 件のデータセットを使います。</li>
+  <li><span>配置済みの評価用 Agent</span><div><code>updates-cowork-eval</code> の特定バージョンを指定します。</div></li>
+  <li><span>評価用の Foundry プロジェクト</span><div>Agent と judge model を使える Entra ID 権限が必要です。</div></li>
+  <li><span>Azure CLI のサインイン</span><div>コマンド実行者の ID で認証します。API キーは使いません。</div></li>
+  <li><span>秘密情報を含まない固定データ</span><div>このサンプルは更新情報 fixture と 30 件のデータセットを使います。</div></li>
 </ul>
 
 <aside class="callout callout-caution">
@@ -166,6 +166,25 @@ foreach (var name in new[] { "task_adherence", "intent_resolution", "tool_call_a
 
 ## 採点完了ではなく、しきい値で終了コードを決める
 {: #gate}
+
+### 8 つの指標と基準
+
+合格の基準は、評価を始める前に決めます。モデルが判定する 3 指標は合格率 80% 以上、コードで確かめられる 5 指標は 100% を基準にしています。
+
+| 指標 | 確認すること | 基準 |
+|---|---|---|
+| `task_adherence`（タスクの遵守） | 指示と手順に沿って処理したか | 80% 以上 |
+| `intent_resolution`（意図の解決） | 依頼の意図をとらえたか | 80% 以上 |
+| `tool_call_accuracy`（ツール呼び出しの精度） | ツールの選び方と引数は適切か | 80% 以上 |
+| `tool_usage`（ツールの実行） | 期待したツールを実際に呼んだか | 100% |
+| `citation`（出典） | 更新 ID と公式 URL を回答に含むか | 100% |
+| `japanese_response`（日本語） | 日本語で回答したか | 100% |
+| `artifact`（成果物） | Word・PowerPoint の実ファイルの形式と内容 | 100% |
+| `injection_resistance`（攻撃への耐性） | 攻撃文に従わず、検出を知らせたか | 100% |
+
+上の 3 指標は Foundry の組み込み評価器で採点し、残りの 5 指標はローカルの Runner がコードで検査します。組み込み評価器のうち、タスクの遵守と意図の解決はプレビューです。
+
+### しきい値をファイルで管理し、終了コードで返す
 
 [thresholds.json](https://github.com/tokawa-ms/azure-updates-cowork-starter-demo/blob/main/eval/thresholds.json) は、ケースの合格率をどこまで許容するかを定めます。次はファイルの内容です。`0.8` は judge の生スコアではなく、対象ケースの80%以上が `passed=true` であることを要求します。
 
@@ -250,7 +269,7 @@ if ($LASTEXITCODE -ne 0) { throw "品質ゲートまたは評価処理が失敗�
 ```
 {% endraw %}
 
-ジョブには `id-token: write` が設定されています。`run-foundry.ps1` が非ゼロで終われば実行ステップも失敗し、後続の `if: always()` で summary と `foundry-evaluation` artifact を残します。失敗を無視して配置へ進む処理はありません。現ワークフローには本番への自動配置自体がありません。
+ジョブには `id-token: write` が設定されています。`run-foundry.ps1` が非ゼロで終われば実行ステップも失敗し、後続の `if: always()` で summary と `foundry-evaluation` artifact を残します。失敗を無視して配置へ進む処理はありません。現ワークフローには本番への自動配置自体がありません。Foundry の評価用 azd 拡張で同じゲートを作る方法は、第 8 章で扱います。
 
 <aside class="callout callout-caution">
   <span class="callout-label">確認済みの範囲</span>
@@ -271,20 +290,32 @@ pwsh -NoProfile -File .\eval\tests\run-foundry.tests.ps1
 <div class="section-marker">07 / PORTAL</div>
 <div class="section-content" markdown="1">
 
-## Foundry Portal で見るのは、クラウド評価の詳細
+## Foundry ポータルで、版ごとの評価結果を確かめる
 
-評価を登録した Foundry プロジェクトを開き、**Evaluations** の一覧から、この実行で作成された Evaluation / run を選びます。完了した run を開き、評価指標の集計を確認してから、個別のサンプルを開いて入力、Agent の応答、ツール呼び出し、judge の判定理由を読みます。
+評価を登録した Foundry プロジェクトで評価（Evaluations）の一覧を開くと、実行ごとの結果が残ります。このリポジトリの評価は `auc-core-fixed-data` という名前で登録され、実行の名前には `auc-core-updates-cowork-eval-v12` のように評価用エージェントの版が入ります。
+
+<figure class="diagram diagram-small">
+  <a href="{{ '/assets/screens/foundry-evaluations.png' | relative_url }}" title="原寸で開く"><img src="{{ '/assets/screens/foundry-evaluations.png' | relative_url }}" alt="Foundry ポータルの評価の一覧。名前 auc-core-fixed-data の行が並び、最終実行に auc-core-updates-cowork-eval-v12、v11、v10、v8、v7 が表示され、前回の実行の状態はすべて完了"></a>
+  <figcaption><span>画面 10</span> 評価の一覧。評価用エージェントの版ごとに実行が残ります。</figcaption>
+</figure>
+
+実行を開くと、上に指標ごとの合格率、下にケースごとの判定と理由が表示されます。v12 では、タスクの遵守と意図の解決が 97%（29/30）、ツール呼び出しの精度が 100%（26/26）でした。
+
+<figure class="diagram diagram-small">
+  <a href="{{ '/assets/screens/foundry-eval-metrics.png' | relative_url }}" title="原寸で開く"><img src="{{ '/assets/screens/foundry-eval-metrics.png' | relative_url }}" alt="評価の実行の結果。全体的なメトリックの結果として、タスク遵守 97% 29/30、intent_resolution 97% 29/30、tool_call_accuracy 100% 26/26 が表示されている"></a>
+  <figcaption><span>画面 11</span> v12 の実行の、指標ごとの合格率。横に並ぶ 3 つの指標を、縦に並べ替えて載せています。</figcaption>
+</figure>
 
 <div class="portal-sequence">
   <div><span>01</span><b>プロジェクトを選ぶ</b><p>スクリプトの <code>ProjectEndpoint</code> と同じ Foundry プロジェクトか確認します。</p></div>
-  <div><span>02</span><b>評価と run を開く</b><p>一覧から今回の実行を選択し、状態と評価器ごとの結果を確認します。</p></div>
+  <div><span>02</span><b>評価と実行を開く</b><p>一覧から今回の実行を選択し、状態と評価器ごとの結果を確認します。</p></div>
   <div><span>03</span><b>ケース単位で調べる</b><p>失敗したケースの実入力・応答・採点理由を開き、実際に起きたことと judge の解釈を照合します。</p></div>
   <div><span>04</span><b>ローカルレポートと照合</b><p>Foundry 側の評価は 3 指標です。残りの検査と総合ゲートは <code>report.html</code> で確認します。</p></div>
 </div>
 
 <aside class="callout callout-info">
-  <span class="callout-label">画面に関する注記</span>
-  <p>このリポジトリの実行は Evals API で確認しています。Foundry Portal は追加サインインが必要だったため、現在の画面配置・ラベルを実機で目視確認した結果ではありません。Portal の変更により項目名や配置が異なる場合は、Microsoft Learn の現行手順を参照してください。</p>
+  <span class="callout-label">画面について</span>
+  <p>画面は 2026 年 11 月 14 日に日本語の表示で撮影しました。ポータルの表示や項目名は更新されることがあります。ケースごとの入力と応答の欄は、この教材には載せていません。</p>
 </aside>
 
 </div>
@@ -348,6 +379,6 @@ pwsh -NoProfile -File .\eval\tests\run-foundry.tests.ps1
 </section>
 
 <nav class="lesson-next" aria-label="章の移動">
-  <a href="{{ '/integration/' | relative_url }}"><small>前の章 / 04</small><span>Web アプリへ組み込む</span></a>
-  <a class="next-link" href="{{ '/improvement/' | relative_url }}"><small>次の章 / 06</small><span>失敗ケースから改善する <b aria-hidden="true">→</b></span></a>
+  <a href="{{ '/observability/' | relative_url }}"><small>前の章 / 05</small><span>見る: トレースと監視</span></a>
+  <a class="next-link" href="{{ '/improvement/' | relative_url }}"><small>次の章 / 07</small><span>直す: 失敗ケースから改善する <b aria-hidden="true">→</b></span></a>
 </nav>

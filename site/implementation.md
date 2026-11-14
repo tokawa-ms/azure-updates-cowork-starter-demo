@@ -1,14 +1,14 @@
 ---
 layout: default
-title: 02 Agent Framework で実装
+title: "02 作る: Agent Framework で実装"
 description: C# の AIAgent に指示文、スキル、MCP ツール、ミドルウェアを組み合わせ、ローカルで Responses を呼ぶ手順です。
 main_class: lesson
 permalink: /implementation/
 ---
 
-<div class="lesson-kicker"><span>02</span><span>IMPLEMENTATION</span><span>—</span><span>Agent Framework の実装</span></div>
+<div class="lesson-kicker"><span>02</span><span>BUILD</span><span>—</span><span>作る: Agent Framework の実装</span></div>
 
-# C# でエージェントを組み立て、実応答を確かめる
+# C# でエージェントを組み立て、<br>実応答を確かめる
 
 <p class="lesson-lead">この章では、モデル接続、指示文、スキル、ツールを AIAgent に組み合わせるコードを読み、ローカルの Responses エンドポイントで動作を確かめます。Hosted Agent への配置は次章で扱います。</p>
 
@@ -110,6 +110,17 @@ private static string Untrusted(string? value) =>
 
 囲みはモデルへの境界表示であって、攻撃の完全な防止ではありません。固定接続先、入力検証、Prompt Shields、攻撃ケースの回帰評価を組み合わせます。
 
+### 検証エラーを返して、エージェントに直させる
+
+検証で拒否した呼び出しは、`ok: false` と理由を持つ構造化エラーとしてモデルに返ります。モデルは理由を読んで引数を直し、もう一度呼び出せます。次の画面では、PowerPoint の 1 回目の作成が枚数の指定の食い違いで拒否され、エージェントが本文の枚数を直して 2 回目で作成を終えました。
+
+<figure class="diagram diagram-small diagram-narrow">
+  <a href="{{ '/assets/screens/app-chat-pptx.png' | relative_url }}" title="原寸で開く"><img src="{{ '/assets/screens/app-chat-pptx.png' | relative_url }}" alt="チャットの進行状況。PowerPoint の資料を作成できませんでした、の後に PowerPoint の資料を作成しました、と表示され、全 4 枚のファイル名が示されている"></a>
+  <figcaption><span>画面 02</span> 赤い行が拒否された 1 回目、その下が 2 回目の作成です。</figcaption>
+</figure>
+
+このときツールは「totalSlides=4 の指定では deck.slides を 2 枚にしてください。」で始まる理由を返しました。指示文だけに頼らずツールで検証すると、失敗と回復がトレースと評価に残ります。同じ失敗のトレースは第 5 章で、この検証を足した経緯は第 7 章で確認します。
+
 ### MCP を使う場合の接続順
 
 このアプリではツールを直接 Agent に登録せず、同一コンテナー内の MCP サーバーで提供します。[CoworkMcpClient.cs](https://github.com/tokawa-ms/azure-updates-cowork-starter-demo/blob/main/src/UpdatesCowork.Agent/Mcp/CoworkMcpClient.cs) は実際のスキーマを発見し、許可した5ツール以外が混ざると起動を失敗させます。
@@ -207,5 +218,5 @@ $response.output | ConvertTo-Json -Depth 30
 
 <nav class="lesson-next" aria-label="章の移動">
   <a href="{{ '/architecture/' | relative_url }}"><small>前の章 / 01</small><span>構成を読む</span></a>
-  <a class="next-link" href="{{ '/hosting/' | relative_url }}"><small>次の章 / 03</small><span>Hosted Agent でホストする <b aria-hidden="true">→</b></span></a>
+  <a class="next-link" href="{{ '/hosting/' | relative_url }}"><small>次の章 / 03</small><span>動かす: Hosted Agent でホストする <b aria-hidden="true">→</b></span></a>
 </nav>

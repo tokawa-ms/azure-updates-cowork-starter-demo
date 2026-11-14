@@ -323,7 +323,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
 tbody th { min-width: 110px; color: var(--ink); font-weight: 700; }
 .trace-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 20px 0; padding: 15px; background: #1d3331; color: #eff4ed; font-family: var(--mono); font-size: 10px; }
 .trace-strip b { color: #f0a27c; }
-.callout { margin: 20px 0 0; padding: 15px 18px; border-left: 3px solid var(--teal); background: var(--teal-wash); }
+.callout { margin: 20px 0; padding: 15px 18px; border-left: 3px solid var(--teal); background: var(--teal-wash); }
 .callout-label { color: var(--teal-dark); font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .08em; }
 .callout p { margin: 4px 0 0; color: #415653; font-size: 11px; }
 .callout-caution { border-color: var(--orange); background: var(--orange-wash); }
@@ -419,6 +419,42 @@ tbody th { min-width: 110px; color: var(--ink); font-weight: 700; }
 .two-column h3 { margin: 6px 0 9px; }
 .two-column ul { margin: 0; padding-left: 17px; color: #52615f; font-size: 10px; }
 .muted-panel { background: #efeee8 !important; }
+
+/* Agent Ops lessons */
+.diagram a { display: block; cursor: zoom-in; }
+.diagram-narrow img { width: auto; max-width: min(100%, 560px); margin: 0 auto; }
+.section-content table { margin: 20px 0; }
+.marker-list { margin: 14px 0 24px; padding: 0; list-style: none; counter-reset: marker; border-top: 1px solid var(--line); }
+.marker-list li { position: relative; padding: 10px 0 10px 38px; border-bottom: 1px solid var(--line); color: #52615f; font-size: 12px; counter-increment: marker; }
+.marker-list li::before { position: absolute; top: 11px; left: 2px; display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #b200a0; color: #fff; content: counter(marker); font-family: var(--mono); font-size: 11px; font-weight: 700; line-height: 1; }
+.marker-list b { color: var(--ink); }
+.chapter-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.chapter-grid-3 .chapter-card { min-height: 0; }
+.principle-grid-4 { grid-template-columns: repeat(4, 1fr); margin-bottom: 34px; }
+.principle-grid ul { margin: 8px 0 0; padding-left: 16px; color: var(--muted); font-size: 10px; }
+.principle-grid .stage-result { margin: 12px 0 0; padding-top: 9px; border-top: 1px dashed #c9cdc2; color: var(--teal-dark); font-weight: 700; }
+.cycle h3 { margin: 12px 0 7px; font-family: var(--serif); font-size: 16px; line-height: 1.5; }
+.status { display: inline-block; padding: 0 7px; border: 1px solid; font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .04em; line-height: 1.9; white-space: nowrap; }
+.status-ga { border-color: #8ab5ab; background: var(--teal-wash); color: var(--teal-dark); }
+.status-preview { border-color: #e2a487; background: var(--orange-wash); color: #9c4428; }
+.status-limited { border-color: #c79bd0; background: #f4eaf6; color: #7a2f87; }
+.version-bars { margin: 20px 0 8px; padding: 14px 16px 10px; border: 1px solid var(--line); background: var(--surface); list-style: none; }
+.version-bars li { display: grid; grid-template-columns: 40px minmax(0, 1fr) 52px; gap: 12px; align-items: center; padding: 4px 0; font-size: 11px; }
+.version-bars li > span:first-child { color: var(--muted); font-family: var(--mono); }
+.version-bars .bar { position: relative; height: 14px; background: #e8ece5; }
+.version-bars .bar::after { position: absolute; top: 0; bottom: 0; left: 0; width: calc(var(--value) / 8 * 100%); background: #9aaba5; content: ""; }
+.version-bars .is-pass .bar::after { background: var(--teal); }
+.version-bars b { color: #52615f; font-family: var(--mono); font-size: 11px; text-align: right; }
+.version-bars .is-pass b { color: var(--teal-dark); }
+.hero h1, .lesson h1, .section-heading h2, .section-content h2, .section-content h3, .checkpoint h2, .chapter-card h3, .cycle h2, .cycle h3, .principle-grid h3, .metric-grid h3, .flow-item h3, .numbered-steps b, .check-list li > span, .rule-list b, .marker-list b, th, td:first-child { word-break: auto-phrase; overflow-wrap: break-word; }
+.section-content td:first-child { min-width: 8.5em; }
+@media (max-width: 860px) {
+  .chapter-grid-3, .principle-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .section-content table { display: block; overflow-x: auto; }
+  .section-content th, .section-content td { min-width: 7.5em; }
+}
 
 @media (max-width: 860px) {
   .site-header { width: min(var(--max-width), calc(100% - 36px)); align-items: flex-start; flex-direction: column; gap: 0; padding-top: 14px; }

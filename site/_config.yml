@@ -1,5 +1,5 @@
 title: Azure Updates Cowork
-description: C# と Agent Framework による実装、Hosted Agent のホスト、Web 統合、自動品質評価を実コードで学ぶガイドです。
+description: C# と Agent Framework で作ったエージェントを Hosted Agent で動かし、トレース、評価、改善の自動化で品質を保つ運用（Agent Ops）を実コードで学ぶガイドです。
 url: https://tokawa-ms.github.io
 baseurl: /azure-updates-cowork-starter-demo
 markdown: kramdown

@@ -1,19 +1,44 @@
 ---
 layout: default
-title: 03 Hosted Agent でホスト
+title: "03 動かす: Hosted Agent でホスト"
 description: Agent Framework のエージェントを Responses で公開し、コンテナーと azure.yaml で Foundry Hosted Agent に配置する実装を読みます。
 main_class: lesson
 permalink: /hosting/
 ---
 
-<div class="lesson-kicker"><span>03</span><span>HOSTING</span><span>—</span><span>ローカルから Foundry へ</span></div>
+<div class="lesson-kicker"><span>03</span><span>HOST</span><span>—</span><span>動かす: ローカルから Foundry へ</span></div>
 
-# 同じエージェントを Responses でホストする
+# 同じエージェントを<br>Responses でホストする
 
 <p class="lesson-lead">Agent Framework はエージェントの処理を組み立てます。Foundry のホスティングパッケージはその処理を HTTP プロトコルに接続し、Hosted Agent 基盤がコンテナー、セッション、ID を管理します。この3つを分けて設定を読みます。</p>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">01 / HOST</div>
+<div class="section-marker">01 / PLATFORM</div>
+<div class="section-content" markdown="1">
+
+## 版・ID・セッション・観測は基盤が用意する
+
+コンテナーの中のエージェントを書けば、次の 4 つは Hosted Agent 基盤が受け持ちます。運用で使う記録（版の履歴、トレース）も、ここから生まれます。
+
+<div class="flow-list">
+  <article class="flow-item"><span class="flow-number">1</span><div><h3>変更できない版</h3><p>版は、コンテナーイメージ、リソースの割り当て、環境変数、プロトコルの設定を記録したものです。作った版は変更できないため、更新は新しい版で行います。</p></div><code>version</code></article>
+  <article class="flow-item"><span class="flow-number">2</span><div><h3>エージェント ID</h3><p>配置時に、専用の Microsoft Entra ID とエンドポイントが自動で作られます。コンテナーは実行時にこの ID で認証し、モデルやツール、Azure のサービスにアクセスします。</p></div><code>Entra ID</code></article>
+  <article class="flow-item"><span class="flow-number">3</span><div><h3>セッション</h3><p>セッションごとに分離されたサンドボックスで動きます。アイドルで計算資源が解放されても、<code>$HOME</code> のファイルは保たれます。</p></div><code>$HOME</code></article>
+  <article class="flow-item"><span class="flow-number">4</span><div><h3>観測</h3><p>Application Insights の接続文字列が環境変数で渡され、プロトコルのライブラリが OpenTelemetry のトレースを出力します。</p></div><code>OpenTelemetry</code></article>
+</div>
+
+<figure class="diagram diagram-small">
+  <a href="{{ '/assets/screens/foundry-agent-details.png' | relative_url }}" title="原寸で開く"><img src="{{ '/assets/screens/foundry-agent-details.png' | relative_url }}" alt="Foundry ポータルのエージェントの詳細。状態は実行中、アクティブなバージョンは最新（Version 11）、ID とアクセスに Entra エージェント ID、エンドポイントに応答プロトコルが表示されている"></a>
+  <figcaption><span>画面 03</span> Foundry ポータルで開いた本番エージェントの詳細。ID とエンドポイントは隠しています。</figcaption>
+</figure>
+
+Foundry ポータルでエージェントを開くと、状態、アクティブなバージョン、Entra のエージェント ID、エンドポイントを確認できます。この画面の「アクティブなバージョン」は「最新」です。エンドポイントは既定で最新の版に要求を送るため、版を固定してから新しい版を試す方法を第 8 章で扱います。
+
+</div>
+</section>
+
+<section class="lesson-section" markdown="1">
+<div class="section-marker">02 / HOST</div>
 <div class="section-content" markdown="1">
 
 ## DI 登録とエンドポイントの公開
@@ -60,7 +85,7 @@ app.MapFoundryResponses();
 </section>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">02 / CONTAINER</div>
+<div class="section-marker">03 / CONTAINER</div>
 <div class="section-content" markdown="1">
 
 ## 8088 番とセッション用ファイル領域を用意する
@@ -93,7 +118,7 @@ EXPOSE 8088
 </section>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">03 / MANIFEST</div>
+<div class="section-marker">04 / MANIFEST</div>
 <div class="section-content" markdown="1">
 
 ## azure.yaml のサービス定義を読む
@@ -126,6 +151,18 @@ agent:
 
 評価用の `agent-eval` は同じプロジェクトを別名 `updates-cowork-eval` で配置し、`AZURE_UPDATES_FIXTURES_DIR=/app/eval-fixtures` を設定します。本番へ評価用 fixture や本文記録設定を持ち込まないことが重要です。
 
+| 項目 | 本番 `agent` | 評価用 `agent-eval` |
+|---|---|---|
+| エージェント名 | `updates-cowork` | `updates-cowork-eval` |
+| 更新データ | 公式のデータ API | 固定データ（`/app/eval-fixtures`） |
+| 本文の記録 | 記録しない（`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "false"`） | 採点のために記録する（`"true"`） |
+| 呼び出し元 | 利用者の画面（BFF） | 評価スクリプトだけ |
+
+<figure class="diagram diagram-small diagram-narrow">
+  <a href="{{ '/assets/screens/foundry-agents.png' | relative_url }}" title="原寸で開く"><img src="{{ '/assets/screens/foundry-agents.png' | relative_url }}" alt="Foundry ポータルのエージェント一覧。updates-cowork はバージョン 11、updates-cowork-eval はバージョン 12 で、どちらも実行中のホスト型"></a>
+  <figcaption><span>画面 04</span> エージェントの一覧。2 つとも Hosted Agent として実行中で、版番号は別々に増えます。</figcaption>
+</figure>
+
 ### 配置を試す前に確認すること
 
 1. 既存 Foundry・Application Insights の ARM ID とモデルデプロイ名を設定する。未指定だと新設の分岐になります。
@@ -144,7 +181,7 @@ agent:
 </section>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">04 / VERIFY</div>
+<div class="section-marker">05 / VERIFY</div>
 <div class="section-content" markdown="1">
 
 ## 「配置成功」を実行可能な状態と取り違えない
@@ -157,7 +194,7 @@ agent:
 | 成果物 | Word を生成し、本人の画面から取得できる | `$HOME` の権限、Session Files、BFF 台帳 |
 | 配置した版 | 応答の `agent_reference` が意図した名前と版 | 版の設定、呼び出しヘッダー |
 
-本番と評価用の版番号は独立です。評価用 v12 と同じソースを本番へ配置しても、本番が v12 になるとは限りません。ソース・イメージと版の対応を記録します。
+本番と評価用の版番号は独立です。評価用 v12 と同じソースを本番へ配置しても、本番が v12 になるとは限りません。このリポジトリでは、評価用 v12 と同じソースを本番 v11 として配置しました。ソース・イメージと版の対応を記録します。
 
 `424` が続く場合、無条件再試行で隠さず、ホスト登録 API、起動ログ、モデル権限を確認します。BFF の再試行は `424` に対し1回だけです。具体的な呼び出しと失敗処理は次章で扱います。
 
@@ -169,6 +206,7 @@ agent:
 
 ## 次章へ進む前に
 
+- 版、エージェント ID、セッション、観測のうち、基盤が用意するものを説明できる。
 - `AIAgent`、Responses ホスト、Hosted Agent 基盤の担当を区別できる。
 - Dockerfile の待ち受け設定と、ローカル／クラウドの保存先を説明できる。
 - 本番と評価用を別 Agent にし、配置したソースと版の対応を確認できる。
@@ -176,6 +214,6 @@ agent:
 </section>
 
 <nav class="lesson-next" aria-label="章の移動">
-  <a href="{{ '/implementation/' | relative_url }}"><small>前の章 / 02</small><span>Agent Framework で実装する</span></a>
+  <a href="{{ '/implementation/' | relative_url }}"><small>前の章 / 02</small><span>作る: Agent Framework で実装する</span></a>
   <a class="next-link" href="{{ '/integration/' | relative_url }}"><small>次の章 / 04</small><span>Web アプリへ組み込む <b aria-hidden="true">→</b></span></a>
 </nav>

@@ -208,6 +208,24 @@ await WriteAsync(new ArtifactCreatedEvent(
 </section>
 
 <section class="lesson-section" markdown="1">
+<div class="section-marker">05 / TOOLS</div>
+<div class="section-content" markdown="1">
+
+## ツールを、業務で許可した能力に限定する
+
+<ul class="rule-list">
+  <li><b>固定した接続先</b><span>モデルに任意 URL を取得させない。外部データのホストはアプリ側で固定する。</span></li>
+  <li><b>引数の検証</b><span>モデルのツール引数も外部入力として検証する。空の成功応答や内部例外の漏えいで失敗を隠さない。</span></li>
+  <li><b>実行の追跡</b><span>ツール開始・終了、結果、エラーをトレースし、本文や秘密情報は記録しない。</span></li>
+  <li><b>ファイルの検査</b><span>許可した形式だけを生成・取得し、サイズ・妥当性・所有者を確認してからダウンロードさせる。</span></li>
+</ul>
+
+このサンプルの業務 5 ツールは非公開 MCP で提供されます。起動時にツール名を許可リストと照合し、MCP で発見した入力スキーマをモデルに渡します。サーバーは loopback の動的ポートで待ち受け、要求サイズと起動時の秘密値も検査します。
+
+</div>
+</section>
+
+<section class="lesson-section" markdown="1">
 <div class="section-marker">06 / TRY</div>
 <div class="section-content" markdown="1">
 
@@ -244,24 +262,6 @@ Azure 接続へ切り替えた後は、同じ操作で Conversation と Session 
 </div>
 </section>
 
-<section class="lesson-section" markdown="1">
-<div class="section-marker">05 / TOOLS</div>
-<div class="section-content" markdown="1">
-
-## ツールを、業務で許可した能力に限定する
-
-<ul class="rule-list">
-  <li><b>固定した接続先</b><span>モデルに任意 URL を取得させない。外部データのホストはアプリ側で固定する。</span></li>
-  <li><b>引数の検証</b><span>モデルのツール引数も外部入力として検証する。空の成功応答や内部例外の漏えいで失敗を隠さない。</span></li>
-  <li><b>実行の追跡</b><span>ツール開始・終了、結果、エラーをトレースし、本文や秘密情報は記録しない。</span></li>
-  <li><b>ファイルの検査</b><span>許可した形式だけを生成・取得し、サイズ・妥当性・所有者を確認してからダウンロードさせる。</span></li>
-</ul>
-
-このサンプルの業務 5 ツールは非公開 MCP で提供されます。起動時にツール名を許可リストと照合し、MCP で発見した入力スキーマをモデルに渡します。サーバーは loopback の動的ポートで待ち受け、要求サイズと起動時の秘密値も検査します。
-
-</div>
-</section>
-
 <section class="checkpoint" markdown="1">
 <p class="eyebrow">CHECKPOINT</p>
 
@@ -280,6 +280,6 @@ Azure 接続へ切り替えた後は、同じ操作で Conversation と Session 
 </section>
 
 <nav class="lesson-next" aria-label="章の移動">
-  <a href="{{ '/hosting/' | relative_url }}"><small>前の章 / 03</small><span>Hosted Agent でホストする</span></a>
-  <a class="next-link" href="{{ '/evaluation/' | relative_url }}"><small>次の章 / 05</small><span>品質評価を自動化する <b aria-hidden="true">→</b></span></a>
+  <a href="{{ '/hosting/' | relative_url }}"><small>前の章 / 03</small><span>動かす: Hosted Agent でホストする</span></a>
+  <a class="next-link" href="{{ '/observability/' | relative_url }}"><small>次の章 / 05</small><span>見る: トレースと監視 <b aria-hidden="true">→</b></span></a>
 </nav>

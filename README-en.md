@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/">Learning guide: architecture, Foundry evaluation, and Hosted Agent integration and improvement</a>
+  <a href="https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/">Learning guide (Japanese): building, hosting, tracing, evaluating, and continuously improving agents (Agent Ops)</a>
 </p>
 
 <p align="center">
@@ -184,6 +184,8 @@ Before publication, review the update site's and data API's terms and establish 
 | [Preflight validation](preflight-report-en.md) | Bicep and initial what-if results |
 
 The learning guide is built from the Markdown files in `site/` using Jekyll and published to GitHub Pages through GitHub Actions. Before the first publication, set the repository's **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. The published URL is `https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/`.
+
+The guide is written in Japanese and has nine chapters: architecture, build (Agent Framework implementation), host (Hosted Agent), web integration, observe (tracing and monitoring), measure (automated quality evaluation), fix (improvement), keep improving (automating the improvement loop), and adoption. It includes source excerpts with links to the original files, local run examples, expected results, and Foundry portal screenshots. Deployment and paid evaluation runs require their own prerequisites, and unverified items such as GitHub Actions OIDC are kept separate from verified results. The preview features covered in chapter 8, such as continuous evaluation and the agent optimizer, are not enabled in this repository.
 
 ## License
 

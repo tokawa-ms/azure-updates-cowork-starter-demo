@@ -30,6 +30,7 @@ jobs:
           mkdir -p _site-source/assets
           cp -R site/. _site-source/
           cp docs/diagrams/01-architecture-overview.png _site-source/assets/
+          cp docs/diagrams/03-chat-turn-sequence.png _site-source/assets/
           cp docs/diagrams/05-agent-building-blocks.png _site-source/assets/
           cp docs/diagrams/06-agent-mcp-internals.png _site-source/assets/
           cp docs/diagrams/09-observability.png _site-source/assets/

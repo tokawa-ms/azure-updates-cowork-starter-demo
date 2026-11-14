@@ -18,7 +18,30 @@ permalink: /architecture/
 </figure>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">01 / REQUEST</div>
+<div class="section-marker">01 / SCREEN</div>
+<div class="section-content" markdown="1">
+
+## 画面から、要約や資料の作成を依頼する
+
+左で Azure の更新情報を選び、右のチャットから要約、Word、PowerPoint の作成を依頼します。画面は Azure Container Apps で動く Web アプリ、依頼を処理するのは Microsoft Foundry の Hosted Agent です。
+
+<figure class="diagram diagram-small">
+  <a href="{{ '/assets/screens/app-overview.png' | relative_url }}" title="原寸で開く"><img src="{{ '/assets/screens/app-overview.png' | relative_url }}" alt="Azure Updates Cowork の画面。左に更新情報の検索と一覧、中央に選択した記事、右に作業ボタン、進行状況、成果物カード、チャットの入力欄がある"></a>
+  <figcaption><span>画面 01</span> 番号は下の説明と対応します。2026 年 11 月 14 日に撮影しました。</figcaption>
+</figure>
+
+<ol class="marker-list">
+  <li><b>更新情報の検索と、作業する記事の選択</b><br>選んだ記事の ID、タイトル、公式 URL を、依頼の文脈としてエージェントに渡します。記事の本文は渡しません。</li>
+  <li><b>ボタンで要約、Word、PowerPoint を依頼</b><br>ボタンは定型の依頼文を送ります。ボタンの種類は、BFF がテレメトリの属性（<code>auc.action</code>）にだけ使います。</li>
+  <li><b>エージェントが立てた手順と進み具合</b><br>エージェントが <code>update_plan</code> ツールで報告した計画を、処理の途中で表示します。</li>
+  <li><b>成果物カードからのダウンロード</b><br>BFF が持ち主を確かめてから、セッション領域のファイルを返します。</li>
+</ol>
+
+</div>
+</section>
+
+<section class="lesson-section" markdown="1">
+<div class="section-marker">02 / REQUEST</div>
 <div class="section-content" markdown="1">
 
 ## 一つの依頼を、境界に沿って追う
@@ -30,11 +53,20 @@ permalink: /architecture/
   <article class="flow-item"><span class="flow-number">4</span><div><h3>セッションファイル → BFF → 利用者</h3><p>Word と PowerPoint は Agent の Hosted Session Files に置きます。BFF は利用者との所有関係を台帳で確認し、本人の成果物だけをダウンロードさせます。</p></div><code>Session Files API</code></article>
 </div>
 
+### Word を依頼したときの呼び出し順
+
+1 回の依頼で、手順書（スキル）の読み込み、計画の報告、記事の取得、Word の生成と保存までを進めます。進行状況（`plan.updated`）と成果物の通知（`artifact.created`）は、処理の途中で画面に届きます。
+
+<figure class="diagram diagram-small">
+  <a href="{{ '/assets/03-chat-turn-sequence.png' | relative_url }}" title="原寸で開く"><img src="{{ '/assets/03-chat-turn-sequence.png' | relative_url }}" alt="画面、Web BFF、Hosted Agent、非公開 MCP、データ API、セッション領域の間で、Word を作る 1 回の依頼が進む順序を示すシーケンス図"></a>
+  <figcaption><span>図 03</span> チャット 1 回分の処理。この流れを第 5 章でトレースとして追い、第 6 章で評価の対象にします。</figcaption>
+</figure>
+
 </div>
 </section>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">02 / AGENT</div>
+<div class="section-marker">03 / AGENT</div>
 <div class="section-content" markdown="1">
 
 ## 「エージェント」は一つのプロンプトではない
@@ -57,19 +89,16 @@ permalink: /architecture/
 </section>
 
 <section class="lesson-section" markdown="1">
-<div class="section-marker">03 / TRACE</div>
+<div class="section-marker">04 / TRACE</div>
 <div class="section-content" markdown="1">
 
 ## 応答ではなく、処理のつながりを見る
 
-応答の文章だけでは、正しいツールが実行されたか、成果物が検証されたかは分かりません。トレースで親子関係と失敗位置を確認します。
-
-<figure class="diagram diagram-small" markdown="1">
-![chat.turn から Hosted Agent、MCP、Office 生成までのトレースと Aspire Dashboard、Application Insights、Foundry Portal の確認箇所]({{ '/assets/09-observability.png' | relative_url }})
-<figcaption><span>図 09</span> ローカルは Aspire Dashboard、Azure では Application Insights と Foundry Traces を使います。</figcaption>
-</figure>
+応答の文章だけでは、正しいツールが実行されたか、成果物が検証されたかは分かりません。Web の `chat.turn` から Word の保存までが 1 本のトレースでつながるため、親子関係と失敗した位置を確認できます。
 
 <div class="trace-strip" aria-label="トレースの例"><span>chat.turn</span><b>→</b><span>invoke_agent</span><b>→</b><span>execute_tool</span><b>→</b><span>tools/call</span><b>→</b><span>office.word.build</span><b>→</b><span>artifact.save</span></div>
+
+ローカルの Aspire Dashboard、Azure の Application Insights と Foundry ポータルでの確認手順は、第 5 章で扱います。
 
 <aside class="callout callout-caution">
   <span class="callout-label">運用上の注意</span>
@@ -84,9 +113,10 @@ permalink: /architecture/
 
 ## この章を終える前に
 
+- 画面のボタンや選択が、どの API と文脈としてエージェントに渡るか説明できる。
 - ブラウザーが直接 Hosted Agent を呼ばず、BFF が仲介する理由を説明できる。
 - 会話 ID・利用者 ID・成果物 ID の所有関係を BFF が確認する理由を説明できる。
-- トレースから、どのツールと処理が失敗したかを辿れる。
+- Word を作る 1 回の依頼が、どの順序でツールを呼ぶか説明できる。
 
 <div class="source-links">
   <a href="https://github.com/tokawa-ms/azure-updates-cowork-starter-demo/blob/main/docs/design.md">設計書 §3、§5、§7、§8 <span>↗</span></a>
@@ -96,5 +126,5 @@ permalink: /architecture/
 
 <nav class="lesson-next" aria-label="章の移動">
   <a href="{{ '/' | relative_url }}"><small>学習ガイド</small><span>トップへ戻る</span></a>
-  <a class="next-link" href="{{ '/implementation/' | relative_url }}"><small>次の章 / 02</small><span>Agent Framework で実装する <b aria-hidden="true">→</b></span></a>
+  <a class="next-link" href="{{ '/implementation/' | relative_url }}"><small>次の章 / 02</small><span>作る: Agent Framework で実装する <b aria-hidden="true">→</b></span></a>
 </nav>
