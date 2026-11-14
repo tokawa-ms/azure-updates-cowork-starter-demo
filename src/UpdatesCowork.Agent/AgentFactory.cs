@@ -3,6 +3,7 @@ using Azure.Core;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UpdatesCowork.Agent.Mcp;
+using UpdatesCowork.Agent.Learning;
 using UpdatesCowork.Shared;
 using UpdatesCowork.Shared.Telemetry;
 
@@ -28,7 +29,8 @@ internal static class AgentFactory
                 MaxOutputTokens = 8192,
             },
             AIContextProviders = [new CurrentTimeContextProvider(services.GetRequiredService<TimeProvider>()), skills],
-        }, loggerFactory: services.GetRequiredService<ILoggerFactory>(), services: services);
+        }, clientFactory: client => new LearningChatClient(client, services.GetRequiredService<AgentTelemetry>(), options.ModelDeployment),
+            loggerFactory: services.GetRequiredService<ILoggerFactory>(), services: services);
         var middleware = services.GetRequiredService<ToolCallMiddleware>();
         return agent.AsBuilder().Use(middleware.InvokeAsync).Use(middleware.RunAsync)
             .UseOpenTelemetry(TelemetryNames.Sources.Agent, telemetry =>

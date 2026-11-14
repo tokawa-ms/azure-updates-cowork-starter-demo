@@ -8,6 +8,8 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using UpdatesCowork.Agent;
 using UpdatesCowork.Agent.Mcp;
+using UpdatesCowork.Agent.Learning;
+using Azure.AI.AgentServer.Responses;
 using UpdatesCowork.Shared;
 using UpdatesCowork.Shared.Telemetry;
 
@@ -27,6 +29,13 @@ builder.Services.AddSingleton(sp => AgentFactory.Create(options, credential, sp)
 builder.Services.AddKeyedSingleton<AIAgent>(builder.Configuration["FOUNDRY_AGENT_NAME"] ?? AgentNames.AgentName,
     (sp, _) => sp.GetRequiredService<AIAgent>());
 builder.AddFoundryResponses();
+var handlerRegistration = builder.Services.Single(service => service.ServiceType == typeof(ResponseHandler));
+var createHandler = handlerRegistration.ImplementationFactory
+    ?? throw new InvalidOperationException("固定 SDK の Responses ハンドラーの登録を確認してください。");
+builder.Services.Remove(handlerRegistration);
+builder.Services.AddSingleton<ResponseHandler>(sp => new LearningResponseHandler(
+    (ResponseHandler)createHandler(sp), sp.GetRequiredService<LearningTraceCollector>(),
+    sp.GetRequiredService<AgentTelemetry>(), sp.GetRequiredService<ILogger<LearningResponseHandler>>()));
 builder.UseMicrosoftOpenTelemetry(o => o.Exporters = TelemetrySetup.ResolveExporters(builder.Configuration));
 builder.Services.AddOpenTelemetry().ConfigureResource(resource =>
     resource.AddService(builder.Configuration["OTEL_SERVICE_NAME"] ?? TelemetryNames.Sources.Agent));

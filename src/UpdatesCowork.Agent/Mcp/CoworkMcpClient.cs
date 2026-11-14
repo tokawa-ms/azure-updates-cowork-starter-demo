@@ -1,14 +1,17 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Diagnostics;
 using Microsoft.Extensions.AI;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using UpdatesCowork.Shared;
+using UpdatesCowork.Shared.Telemetry;
+using UpdatesCowork.Agent.Learning;
 
 namespace UpdatesCowork.Agent.Mcp;
 
-internal sealed class CoworkMcpClient : IAsyncDisposable
+internal sealed class CoworkMcpClient(AgentTelemetry telemetry) : IAsyncDisposable
 {
     private McpClient? _client;
     private IList<McpClientTool>? _tools;
@@ -40,7 +43,7 @@ internal sealed class CoworkMcpClient : IAsyncDisposable
 
         return _tools.Select(tool =>
         {
-            AIFunction function = new JsonMcpFunction(tool, _client, sessionIdProvider);
+            AIFunction function = new JsonMcpFunction(tool, _client, sessionIdProvider, telemetry);
             return (AITool)(requireApproval && ToolNames.IsArtifactTool(tool.Name)
                 ? new ApprovalRequiredAIFunction(function) : function);
         }).ToList();
@@ -73,13 +76,23 @@ internal sealed class CoworkMcpClient : IAsyncDisposable
         }
     }
 
-    private sealed class JsonMcpFunction(McpClientTool tool, McpClient client, Func<string?> sessionIdProvider)
+    private sealed class JsonMcpFunction(McpClientTool tool, McpClient client, Func<string?> sessionIdProvider, AgentTelemetry telemetry)
         : DelegatingAIFunction(tool)
     {
         protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
         {
+            using var activity = telemetry.Source.StartActivity(TelemetryNames.Spans.McpCall, ActivityKind.Client,
+                Activity.Current?.Context ?? default, tags: new TagList
+            {
+                { TelemetryNames.Attributes.ToolName, Name },
+            });
             // モデルの引数ではなく、ホストが管理するセッションだけをプロトコルのメタデータに載せる。
             var metadata = new JsonObject();
+            if (LearningTraceCollector.Current is { } trace && activity is not null && trace.Contains(activity.SpanId.ToHexString()))
+            {
+                metadata[LearningTraceCollector.SessionMetadataKey] = trace.Id;
+                metadata[LearningTraceCollector.ParentMetadataKey] = activity.SpanId.ToHexString();
+            }
             if (sessionIdProvider() is { } sessionId)
             {
                 if (!McpInvocationContext.IsValidSessionId(sessionId))
@@ -90,15 +103,31 @@ internal sealed class CoworkMcpClient : IAsyncDisposable
                 metadata[McpInvocationContext.SessionMetadataKey] = sessionId;
             }
 
-            var result = await client.CallToolAsync(Name, arguments,
-                options: new RequestOptions { Meta = metadata }, cancellationToken: cancellationToken).ConfigureAwait(false);
-            var json = ReadResult(result);
-            if (result.IsError == true && (!json.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.False))
+            try
             {
-                throw new InvalidDataException("MCP のエラー結果の形式が正しくありません。");
+                var result = await client.CallToolAsync(Name, arguments,
+                    options: new RequestOptions { Meta = metadata }, cancellationToken: cancellationToken).ConfigureAwait(false);
+                var json = ReadResult(result);
+                if (result.IsError == true)
+                {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    if (!json.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.False)
+                    {
+                        throw new InvalidDataException("MCP のエラー結果の形式が正しくありません。");
+                    }
+                }
+                return json;
             }
-
-            return json;
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                activity?.SetTag(TelemetryNames.Attributes.Outcome, "cancelled");
+                throw;
+            }
+            catch (Exception)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error);
+                throw;
+            }
         }
     }
 }

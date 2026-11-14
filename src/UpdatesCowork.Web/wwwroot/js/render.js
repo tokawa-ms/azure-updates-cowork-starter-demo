@@ -28,6 +28,9 @@ const TOOL_NOUNS = Object.freeze({
   get_azure_update: "更新情報の取得",
   create_word_report: "Word の報告書の作成",
   create_powerpoint_deck: "PowerPoint の資料の作成",
+  load_skill: "手順書の読み込み",
+  read_skill_resource: "スキル参照資料の読み込み",
+  update_plan: "実行計画の更新",
 });
 
 const PLAN_STATUS_LABELS = Object.freeze({
@@ -107,6 +110,10 @@ function toolTexts(name) {
   return TOOL_TEXTS[name] ?? [`ツール ${name} を実行しています`, `ツール ${name} を実行しました`, `ツール ${name} を実行できませんでした`];
 }
 
+export function toolNoun(name) {
+  return Object.hasOwn(TOOL_NOUNS, name) ? TOOL_NOUNS[name] : `ツール ${name} の実行`;
+}
+
 /** ツールの動きの行(実行中)を作る。 */
 export function createToolLine(name) {
   const line = el("li", "tool-line tool-running");
@@ -170,7 +177,7 @@ export function createApprovalCard(request, onDecide) {
   const card = el("div", "card approval-card");
   card.setAttribute("role", "group");
   card.setAttribute("aria-label", "承認の確認");
-  const noun = TOOL_NOUNS[request.toolName] ?? `ツール ${request.toolName} の実行`;
+  const noun = toolNoun(request.toolName);
   card.append(el("p", "approval-title", `${noun}を始めてよいですか。`));
   if (request.argumentsPreview) {
     const details = el("details", "approval-details");

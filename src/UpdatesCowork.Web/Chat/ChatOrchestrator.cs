@@ -26,6 +26,8 @@ internal sealed record ChatTurnInput
     public string? Message { get; init; }
 
     public AgentApprovalResponse? Approval { get; init; }
+
+    public WebLearningTrace? WebTrace { get; init; }
 }
 
 /// <summary>
@@ -120,20 +122,34 @@ internal sealed partial class ChatOrchestrator(
         var ct = linkedCts.Token;
 
         var thread = input.Thread;
-        using var activity = WebTelemetry.Source.StartActivity(TelemetryNames.Spans.ChatTurn, ActivityKind.Internal);
-        activity?.SetTag(TelemetryNames.Attributes.ThreadId, thread.ThreadId);
-        activity?.SetTag(TelemetryNames.Attributes.UserKey, thread.UserKey);
-        activity?.SetTag(TelemetryNames.Attributes.Action, input.Action);
-        activity?.SetTag(TelemetryNames.Attributes.PageUpdateId, input.Page?.UpdateId);
-        var traceId = (activity ?? Activity.Current)?.TraceId.ToHexString();
+        var webTrace = input.WebTrace ?? new WebLearningTrace();
+        using var turnSpan = webTrace.Start(TelemetryNames.Spans.ChatTurn, cancellationToken: ct);
+        var activity = turnSpan.Activity;
+        activity.SetTag(TelemetryNames.Attributes.ThreadId, thread.ThreadId);
+        activity.SetTag(TelemetryNames.Attributes.UserKey, thread.UserKey);
+        activity.SetTag(TelemetryNames.Attributes.Action, input.Action);
+        activity.SetTag(TelemetryNames.Attributes.PageUpdateId, input.Page?.UpdateId);
+        var traceId = activity.TraceId.ToHexString();
 
         var outcome = TelemetryNames.Outcomes.Error;
         var eventCount = 0;
         double? ttftMs = null;
         ChatEventMapper? mapper = null;
+        ChatEvent? terminal = null;
+        webTrace.Attach(chatEvent =>
+        {
+            if (!writer.TryWrite(chatEvent)) throw new InvalidOperationException("Web の計測イベントを送信できませんでした。");
+            eventCount++;
+        });
 
         async Task WriteAsync(ChatEvent chatEvent)
         {
+            // 終了通知は Web の最終計測と台帳更新の後に送る。
+            if (chatEvent is DoneEvent or ErrorEvent)
+            {
+                if (terminal is not ErrorEvent) terminal = chatEvent;
+                return;
+            }
             await writer.WriteAsync(chatEvent, ct).ConfigureAwait(false);
             eventCount++;
         }
@@ -145,10 +161,11 @@ internal sealed partial class ChatOrchestrator(
             if (useConversations && string.IsNullOrEmpty(thread.ConversationId))
             {
                 string conversationId;
-                using (var createActivity = WebTelemetry.Source.StartActivity(TelemetryNames.Spans.AgentConversationCreate, ActivityKind.Client))
+                using (var conversationSpan = webTrace.Start(TelemetryNames.Spans.AgentConversationCreate, ActivityKind.Client, ct))
                 {
                     conversationId = await gateway.CreateConversationAsync(callContext, ct).ConfigureAwait(false);
-                    createActivity?.SetTag(TelemetryNames.Attributes.ConversationId, conversationId);
+                    conversationSpan.Activity.SetTag(TelemetryNames.Attributes.ConversationId, conversationId);
+                    conversationSpan.Complete();
                 }
 
                 thread = thread with { ConversationId = conversationId };
@@ -168,45 +185,58 @@ internal sealed partial class ChatOrchestrator(
             };
 
             mapper = new ChatEventMapper(thread.ThreadId, thread.ConversationId, traceId, logger);
-            await foreach (var agentEvent in gateway.StreamAsync(request, ct).ConfigureAwait(false))
+            using (var invokeSpan = webTrace.Start(TelemetryNames.Spans.WebAgentInvoke, ActivityKind.Client, ct))
             {
-                foreach (var chatEvent in mapper.Map(agentEvent))
+                WebLearningTrace.Span? relaySpan = null;
+                try
                 {
-                    if (chatEvent is TextDeltaEvent && ttftMs is null)
+                    await foreach (var agentEvent in gateway.StreamAsync(request, ct).ConfigureAwait(false))
                     {
-                        ttftMs = timeProvider.GetElapsedTime(startTimestamp).TotalMilliseconds;
-                        telemetry.RecordTtft(input.Action, ttftMs.Value);
-                    }
-
-                    await WriteAsync(chatEvent).ConfigureAwait(false);
-
-                    if (chatEvent is ToolCompletedEvent)
-                    {
-                        // 成果物は台帳に登録してから画面に知らせる(登録前にダウンロードされないように)。
-                        while (mapper.TryDequeueArtifact(out var artifact))
+                        relaySpan ??= webTrace.Start(TelemetryNames.Spans.WebSseRelay, cancellationToken: ct);
+                        foreach (var chatEvent in mapper.Map(agentEvent))
                         {
-                            if (artifact.SessionId is { Length: > 0 } sessionId && thread.SessionId != sessionId)
+                            if (chatEvent is TextDeltaEvent && ttftMs is null)
                             {
-                                thread = thread with { SessionId = sessionId };
-                                await registry.UpdateThreadAsync(thread, ct).ConfigureAwait(false);
+                                ttftMs = timeProvider.GetElapsedTime(startTimestamp).TotalMilliseconds;
+                                telemetry.RecordTtft(input.Action, ttftMs.Value);
                             }
-
-                            await registry.AddArtifactAsync(thread.UserKey, ToRecord(artifact, thread.ThreadId), ct).ConfigureAwait(false);
-                            await WriteAsync(new ArtifactCreatedEvent(
-                                artifact.ArtifactId,
-                                artifact.FileName,
-                                artifact.Kind,
-                                artifact.SizeBytes,
-                                $"/api/artifacts/{artifact.ArtifactId}")).ConfigureAwait(false);
+                            await WriteAsync(chatEvent).ConfigureAwait(false);
+                            if (chatEvent is ToolCompletedEvent)
+                            {
+                                // 成果物は台帳に登録してから画面に知らせる。
+                                while (mapper.TryDequeueArtifact(out var artifact))
+                                {
+                                    using (var registerSpan = webTrace.Start(TelemetryNames.Spans.WebArtifactRegister, cancellationToken: ct))
+                                    {
+                                        if (artifact.SessionId is { Length: > 0 } sessionId && thread.SessionId != sessionId)
+                                        {
+                                            thread = thread with { SessionId = sessionId };
+                                            await registry.UpdateThreadAsync(thread, ct).ConfigureAwait(false);
+                                        }
+                                        await registry.AddArtifactAsync(thread.UserKey, ToRecord(artifact, thread.ThreadId), ct).ConfigureAwait(false);
+                                        registerSpan.Complete();
+                                    }
+                                    await WriteAsync(new ArtifactCreatedEvent(
+                                        artifact.ArtifactId, artifact.FileName, artifact.Kind, artifact.SizeBytes,
+                                        $"/api/artifacts/{artifact.ArtifactId}")).ConfigureAwait(false);
+                                }
+                            }
                         }
                     }
+                    relaySpan?.Complete();
+                    if (mapper.DoneStatus is not null && mapper.ErrorCode is null) invokeSpan.Complete();
+                }
+                finally
+                {
+                    relaySpan?.Dispose();
                 }
             }
 
             activity?.SetTag(TelemetryNames.Attributes.ResponseId, mapper.ResponseId);
             if (mapper.DoneStatus is { } status)
             {
-                outcome = status == "completed" ? TelemetryNames.Outcomes.Completed : TelemetryNames.Outcomes.Incomplete;
+                outcome = mapper.ErrorCode is not null ? TelemetryNames.Outcomes.Error
+                    : status == "completed" ? TelemetryNames.Outcomes.Completed : TelemetryNames.Outcomes.Incomplete;
                 thread = thread with
                 {
                     LastResponseId = mapper.ResponseId ?? thread.LastResponseId,
@@ -218,8 +248,7 @@ internal sealed partial class ChatOrchestrator(
             }
             else if (mapper.ErrorCode is null)
             {
-                await WriteAsync(new ErrorEvent(ChatErrorCodes.AgentError, "応答が途中で終わりました。もう一度お試しください。", traceId))
-                    .ConfigureAwait(false);
+                terminal = new ErrorEvent(ChatErrorCodes.AgentError, "応答が途中で終わりました。もう一度お試しください。", traceId);
             }
             else
             {
@@ -231,10 +260,7 @@ internal sealed partial class ChatOrchestrator(
             outcome = TelemetryNames.Outcomes.Timeout;
             activity?.SetStatus(ActivityStatusCode.Error, ChatErrorCodes.Timeout);
             LogTimeout(logger, thread.ThreadId);
-            if (writer.TryWrite(new ErrorEvent(ChatErrorCodes.Timeout, "時間内に応答が終わりませんでした。依頼を短くして、もう一度お試しください。", traceId)))
-            {
-                eventCount++;
-            }
+            terminal = new ErrorEvent(ChatErrorCodes.Timeout, "時間内に応答が終わりませんでした。依頼を短くして、もう一度お試しください。", traceId);
         }
         catch (OperationCanceledException) when (requestAborted.IsCancellationRequested)
         {
@@ -244,10 +270,7 @@ internal sealed partial class ChatOrchestrator(
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.Code);
             LogGatewayError(logger, ex.Code, ex.StatusCode ?? 0);
-            if (writer.TryWrite(new ErrorEvent(ex.Code, ex.Message, traceId)))
-            {
-                eventCount++;
-            }
+            terminal = new ErrorEvent(ex.Code, ex.Message, traceId);
         }
 #pragma warning disable CA1031 // 予期しない例外でも、画面には短いエラーを返してストリームを閉じる必要があるため。
         catch (Exception ex)
@@ -255,15 +278,12 @@ internal sealed partial class ChatOrchestrator(
         {
             activity?.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
             LogUnexpectedError(logger, ex, thread.ThreadId);
-            if (writer.TryWrite(new ErrorEvent(ChatErrorCodes.AgentError, "エラーが発生しました。もう一度お試しください。", traceId)))
-            {
-                eventCount++;
-            }
+            terminal = new ErrorEvent(ChatErrorCodes.AgentError, "エラーが発生しました。もう一度お試しください。", traceId);
         }
         finally
         {
             var durationMs = timeProvider.GetElapsedTime(startTimestamp).TotalMilliseconds;
-            activity?.SetTag(TelemetryNames.Attributes.Events, eventCount);
+            activity?.SetTag(TelemetryNames.Attributes.Events, eventCount + 2 + (terminal is not null && !requestAborted.IsCancellationRequested ? 1 : 0));
             activity?.SetTag(TelemetryNames.Attributes.Outcome, outcome);
             if (ttftMs is { } ttft)
             {
@@ -276,6 +296,13 @@ internal sealed partial class ChatOrchestrator(
             }
 
             telemetry.RecordTurn(input.Action, outcome, durationMs);
+            turnSpan.Finish(outcome == CancelledOutcome ? "cancelled"
+                : terminal is ErrorEvent || outcome is TelemetryNames.Outcomes.Error or TelemetryNames.Outcomes.Timeout ? "failed" : "completed");
+            webTrace.Finish();
+            if (terminal is not null && !requestAborted.IsCancellationRequested)
+            {
+                if (!writer.TryWrite(terminal)) LogTerminalWriteFailed(logger);
+            }
             writer.TryComplete();
         }
     }
@@ -305,4 +332,7 @@ internal sealed partial class ChatOrchestrator(
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "推論の要約(reasoning)の件数: {Count}")]
     private static partial void LogReasoningCount(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "応答の終了イベントを送信できませんでした。")]
+    private static partial void LogTerminalWriteFailed(ILogger logger);
 }

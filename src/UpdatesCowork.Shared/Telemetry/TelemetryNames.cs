@@ -13,7 +13,15 @@ public static class TelemetryNames
 
     public static class Spans
     {
+        public const string AgentTurn = "agent.turn";
+        public const string ModelCall = "model.call";
+        public const string ToolExecute = "tool.execute";
+        public const string McpCall = "mcp.call";
         public const string ChatTurn = "chat.turn";
+        public const string WebRequestPrepare = "web.request.prepare";
+        public const string WebAgentInvoke = "web.agent.invoke";
+        public const string WebSseRelay = "web.sse.relay";
+        public const string WebArtifactRegister = "web.artifact.register";
         public const string AgentConversationCreate = "agent.conversation.create";
         public const string ArtifactDownload = "artifact.download";
         public const string ArtifactSessionFileRead = "artifact.session_file.read";
@@ -55,6 +63,10 @@ public static class TelemetryNames
         public const string Outcome = "auc.outcome";
         public const string ErrorType = "error.type";
         public const string ToolName = "gen_ai.tool.name";
+        public const string ToolCallId = "gen_ai.tool.call.id";
+        public const string Model = "gen_ai.request.model";
+        public const string InputTokens = "gen_ai.usage.input_tokens";
+        public const string OutputTokens = "gen_ai.usage.output_tokens";
         public const string FeedbackRating = "auc.feedback.rating";
         public const string FeedbackComment = "auc.feedback.comment";
     }

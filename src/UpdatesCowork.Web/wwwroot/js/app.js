@@ -1,6 +1,7 @@
 // 専用ビューアーの選択とチャットを、同一オリジンのページ状態でつなぐ。
 import { getJson, postJson, postSse, HttpError } from "./sse.js";
 import { createViewer } from "./viewer.js";
+import { createLearningFlow } from "./learning-flow.js";
 import {
   buildKql,
   completeToolLine,
@@ -22,6 +23,7 @@ const MAX_MESSAGE_LENGTH = 2000;
 const MAX_TITLE_LENGTH = 300;
 const MAX_URL_LENGTH = 2048;
 const LEARNING_STORAGE_KEY = "auc.learningMode";
+const LEARNING_VIEW_STORAGE_KEY = "auc.learningView";
 const THREAD_ID_PATTERN = /^th_[0-9A-HJKMNP-TV-Z]{26}$/;
 const UPDATE_ID_PATTERN = /^[A-Za-z0-9-]{1,200}$/;
 const LANG_PATTERN = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}$/;
@@ -60,6 +62,11 @@ const ui = {
   learningToggleLabel: document.getElementById("learning-toggle-label"),
   learningToggle: document.getElementById("learning-toggle"),
   learningPanel: document.getElementById("learning-panel"),
+  learningClose: document.getElementById("close-learning"),
+  viewerContent: document.getElementById("viewer-content"),
+  learningViews: Array.from(document.querySelectorAll('input[name="learning-view"]')),
+  learningDetails: document.getElementById("learning-details"),
+  learningGraph: document.getElementById("learning-graph"),
   learnTraceId: document.getElementById("learn-trace-id"),
   learnResponseId: document.getElementById("learn-response-id"),
   learnConversationId: document.getElementById("learn-conversation-id"),
@@ -72,6 +79,7 @@ const ui = {
   signinLink: document.getElementById("signin-link"),
   signoutLink: document.getElementById("signout-link"),
 };
+const learningFlow = createLearningFlow(document.getElementById("learning-flow"));
 
 const state = {
   config: null,
@@ -117,8 +125,47 @@ function setupLearningMode() {
       enabled = false;
     }
   }
-  ui.learningToggle.checked = enabled;
-  ui.learningPanel.hidden = !enabled;
+  setLearningMode(enabled);
+  let view = "details";
+  try {
+    view = window.localStorage.getItem(LEARNING_VIEW_STORAGE_KEY) === "graph" ? "graph" : "details";
+  } catch {
+    // 保存できない環境では従来の詳細表示にする。
+  }
+  setLearningView(view);
+}
+
+function setLearningView(view) {
+  const graph = view === "graph";
+  ui.learningDetails.hidden = graph;
+  ui.learningGraph.hidden = !graph;
+  for (const input of ui.learningViews) {
+    input.checked = input.value === view;
+  }
+}
+
+function setLearningMode(enabled, focusPanel = false) {
+  const open = enabled && state.config?.features?.learningMode === true;
+  const restoreFocus = !open && ui.learningPanel.contains(document.activeElement);
+  ui.learningToggle.checked = open;
+  ui.learningToggle.setAttribute("aria-expanded", String(open));
+  ui.learningPanel.hidden = !open;
+  // ページ全体をモーダル化せず、背後のライブラリーだけを操作不可にする。
+  ui.viewerContent.inert = open;
+  if (open && focusPanel) {
+    ui.learningClose.focus({ preventScroll: true });
+  } else if (restoreFocus) {
+    ui.learningToggle.focus({ preventScroll: true });
+  }
+}
+
+function changeLearningMode(enabled) {
+  setLearningMode(enabled, enabled);
+  try {
+    window.localStorage.setItem(LEARNING_STORAGE_KEY, enabled ? "on" : "off");
+  } catch {
+    // 保存できなくても開閉はできる。
+  }
 }
 
 async function setupAuth() {
@@ -242,14 +289,26 @@ function bindEvents() {
   ui.stopButton.addEventListener("click", () => state.controller?.abort());
   ui.newThreadButton.addEventListener("click", startNewThread);
   ui.learningToggle.addEventListener("change", () => {
-    ui.learningPanel.hidden = !ui.learningToggle.checked;
-    try {
-      window.localStorage.setItem(LEARNING_STORAGE_KEY, ui.learningToggle.checked ? "on" : "off");
-    } catch {
-      // 保存できなくても切り替えは効く。
+    changeLearningMode(ui.learningToggle.checked);
+  });
+  ui.learningClose.addEventListener("click", () => changeLearningMode(false));
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented && !ui.learningPanel.hidden) {
+      event.preventDefault();
+      changeLearningMode(false);
     }
   });
   ui.copyKqlButton.addEventListener("click", copyKql);
+  for (const input of ui.learningViews) {
+    input.addEventListener("change", () => {
+      setLearningView(input.value);
+      try {
+        window.localStorage.setItem(LEARNING_VIEW_STORAGE_KEY, input.value);
+      } catch {
+        // 保存できなくても表示は切り替える。
+      }
+    });
+  }
 }
 
 function updateControls() {
@@ -373,6 +432,7 @@ async function runTurn(url, body) {
   state.controller = controller;
   updateControls();
   resetLearning();
+  learningFlow.start(body.approve);
   try {
     await postSse(url, body, (name, data) => handleEvent(turn, name, data), controller.signal);
     if (!turn.finished) {
@@ -380,6 +440,7 @@ async function runTurn(url, body) {
     }
   } catch (error) {
     if (error?.name === "AbortError") {
+      learningFlow.finish("stopped", "画面での受信を停止しました。サーバー側の各処理が停止したかどうかは、この図では確認できません。");
       showTurnNote(turn, "止めました。");
     } else if (error instanceof HttpError) {
       handleHttpError(turn, error);
@@ -420,6 +481,7 @@ function handleHttpError(turn, error) {
 }
 
 function showTurnError(turn, text) {
+  learningFlow.finish("failed", text);
   const note = el("p", "turn-error", text);
   note.setAttribute("role", "alert");
   turn.footer.append(note);
@@ -446,6 +508,7 @@ function renderText(turn) {
 
 /** SSE のイベント(6.3節)を画面に反映する。 */
 function handleEvent(turn, name, data) {
+  learningFlow.handle(name, data, state.config?.features?.approvals === true);
   switch (name) {
     case "meta":
       if (typeof data.threadId === "string" && THREAD_ID_PATTERN.test(data.threadId)) {
@@ -551,6 +614,7 @@ function addFeedback(turn) {
 // ---- 学習モード ----
 
 function resetLearning() {
+  learningFlow.reset();
   state.traceId = null;
   ui.learnTraceId.textContent = "-";
   ui.learnResponseId.textContent = "-";

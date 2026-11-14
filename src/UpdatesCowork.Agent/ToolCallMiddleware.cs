@@ -31,6 +31,12 @@ internal sealed class ToolCallMiddleware(AgentTelemetry telemetry, ILogger<ToolC
         Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>> next, CancellationToken cancellationToken)
     {
         var budget = _budget.Value ?? throw new InvalidOperationException("呼び出し回数の管理が開始されていません。");
+        using var activity = telemetry.Source.StartActivity(TelemetryNames.Spans.ToolExecute, ActivityKind.Internal,
+            Activity.Current?.Context ?? default, tags: new TagList
+        {
+            { TelemetryNames.Attributes.ToolName, context.Function.Name },
+            { TelemetryNames.Attributes.ToolCallId, context.CallContent?.CallId },
+        });
         var start = Stopwatch.GetTimestamp();
         var outcome = TelemetryNames.Outcomes.Error;
         try
@@ -55,6 +61,7 @@ internal sealed class ToolCallMiddleware(AgentTelemetry telemetry, ILogger<ToolC
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            outcome = "cancelled";
             throw;
         }
         catch (Exception ex)
@@ -67,6 +74,11 @@ internal sealed class ToolCallMiddleware(AgentTelemetry telemetry, ILogger<ToolC
         }
         finally
         {
+            activity?.SetTag(TelemetryNames.Attributes.Outcome, outcome);
+            if (outcome == TelemetryNames.Outcomes.Error)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error);
+            }
             var tags = new TagList
             {
                 { TelemetryNames.Dimensions.Tool, context.Function.Name },

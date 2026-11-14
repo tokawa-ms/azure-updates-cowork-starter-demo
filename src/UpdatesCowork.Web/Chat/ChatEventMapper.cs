@@ -21,7 +21,6 @@ internal sealed partial class ChatEventMapper(string threadId, string? conversat
 
     private static readonly HashSet<string> IgnoredTypes = new(StringComparer.Ordinal)
     {
-        "response.in_progress",
         "response.queued",
         "response.output_text.done",
         "response.output_text.annotation.added",
@@ -67,11 +66,15 @@ internal sealed partial class ChatEventMapper(string threadId, string? conversat
         var data = evt.Data;
         if (data.ValueKind != JsonValueKind.Object)
         {
-            return None;
+            return evt.Type == AgentTraceEnvelope.EventType && !_traceRejected ? RejectTrace() : None;
         }
 
         switch (evt.Type)
         {
+            case AgentTraceEnvelope.CarrierEventType:
+                return data.TryGetProperty(AgentTraceEnvelope.MetadataProperty, out var trace) ? MapLearningTrace(trace) : None;
+            case AgentTraceEnvelope.EventType:
+                return MapLearningTrace(data);
             case "response.created":
                 return MapCreated(data);
             case "response.output_text.delta":

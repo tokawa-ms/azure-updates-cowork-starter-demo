@@ -3,16 +3,18 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using UpdatesCowork.Agent.Tools;
+using UpdatesCowork.Agent.Learning;
 using UpdatesCowork.Shared;
 using UpdatesCowork.Shared.Telemetry;
 
 namespace UpdatesCowork.Agent.Mcp;
 
-internal sealed class CoworkMcpServer(AgentTelemetry telemetry, ILogger<CoworkMcpServer> logger)
+internal sealed class CoworkMcpServer(AgentTelemetry telemetry, ILogger<CoworkMcpServer> logger, LearningTraceCollector traces)
 {
     internal const string AccessHeader = "X-AUC-MCP-Access";
     internal string AccessToken { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
@@ -38,7 +40,23 @@ internal sealed class CoworkMcpServer(AgentTelemetry telemetry, ILogger<CoworkMc
             })))
             .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, cancellationToken) =>
             {
-                using var activity = telemetry.Source.StartActivity(TelemetryNames.Spans.McpToolExecute);
+                LearningTraceSession? trace = null;
+                var traceNode = request.Params?.Meta?[LearningTraceCollector.SessionMetadataKey];
+                var parentNode = request.Params?.Meta?[LearningTraceCollector.ParentMetadataKey];
+                string? traceId = null;
+                string? parentId = null;
+                if ((traceNode is not null && (traceNode is not JsonValue traceValue || !traceValue.TryGetValue(out traceId)))
+                    || (parentNode is not null && (parentNode is not JsonValue parentValue || !parentValue.TryGetValue(out parentId)))
+                    || (traceId is not null || parentId is not null)
+                    && (traceId is null || parentId is null || !traces.TryGetSession(traceId, parentId, out trace)))
+                {
+                    AgentLog.InvalidInput(logger, "mcp.trace");
+                    return Error("学習トレースの関連付けが正しくありません。");
+                }
+                using var scope = trace is null ? null : LearningTraceCollector.Enter(trace);
+                using var activity = trace is null
+                    ? telemetry.Source.StartActivity(TelemetryNames.Spans.McpToolExecute)
+                    : telemetry.Source.StartActivity(TelemetryNames.Spans.McpToolExecute, ActivityKind.Internal, trace.GetContext(parentId!));
                 activity?.SetTag(TelemetryNames.Attributes.ToolName, request.Params?.Name);
                 var previous = McpInvocationContext.SessionId.Value;
                 try
@@ -81,6 +99,7 @@ internal sealed class CoworkMcpServer(AgentTelemetry telemetry, ILogger<CoworkMc
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
+                    activity?.SetTag(TelemetryNames.Attributes.Outcome, "cancelled");
                     throw;
                 }
                 catch (Exception ex)

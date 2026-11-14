@@ -12,7 +12,7 @@
     <h1 class="app-title"><span class="brand-mark" aria-hidden="true">A</span> Azure Updates <span class="brand-light">Cowork</span></h1>
     <div class="header-tools">
       <label class="toggle" id="learning-toggle-label" hidden>
-        <input type="checkbox" id="learning-toggle">
+        <input type="checkbox" id="learning-toggle" aria-controls="learning-panel" aria-expanded="false">
         <span>学習モード</span>
       </label>
       <span id="user-status" class="user-status" hidden></span>
@@ -23,32 +23,68 @@
 
   <main class="layout">
     <section class="site-pane" aria-label="Azure の更新情報">
-      <div class="viewer-heading">
-        <div><p class="section-label">01 / 更新情報ライブラリー</p><h2>更新を読む。次の一手をつくる。</h2></div>
-        <a class="source-link" href="https://azure.microsoft.com/updates" target="_blank" rel="noopener noreferrer">公式サイト ↗</a>
+      <div id="viewer-content" class="viewer-content">
+        <div class="viewer-heading">
+          <div><p class="section-label">01 / 更新情報ライブラリー</p><h2>更新を読む。次の一手をつくる。</h2></div>
+          <a class="source-link" href="https://azure.microsoft.com/updates" target="_blank" rel="noopener noreferrer">公式サイト ↗</a>
+        </div>
+        <form id="updates-search" class="viewer-search" role="search">
+          <label class="search-keyword"><span>キーワード</span><input id="updates-keyword" type="search" maxlength="100" placeholder="例: Azure AI、SQL、Storage"></label>
+          <label><span>製品</span><input id="updates-product" type="search" maxlength="100" placeholder="製品名で絞る"></label>
+          <label><span>状態</span><select id="updates-status">
+            <option value="">すべての状態</option>
+            <option value="Launched">一般提供</option>
+            <option value="In preview">プレビュー</option>
+            <option value="In development">開発中</option>
+            <option value="Retirement">廃止・退役</option>
+          </select></label>
+          <button type="submit" class="primary-button">検索</button>
+        </form>
+        <p id="updates-count" class="viewer-count" role="status">更新情報を読み込んでいます…</p>
+        <div class="viewer-body">
+          <nav class="updates-nav" aria-label="更新情報の一覧">
+            <ul id="updates-list" class="updates-list"></ul>
+            <button id="updates-retry" type="button" class="secondary-button" hidden>再読み込み</button>
+          </nav>
+          <article id="update-article" class="update-article" aria-label="選択した更新情報" tabindex="-1">
+            <p class="article-placeholder">一覧から更新情報を選んでください。選んだ記事をもとに、右のチャットで作業できます。</p>
+          </article>
+        </div>
       </div>
-      <form id="updates-search" class="viewer-search" role="search">
-        <label class="search-keyword"><span>キーワード</span><input id="updates-keyword" type="search" maxlength="100" placeholder="例: Azure AI、SQL、Storage"></label>
-        <label><span>製品</span><input id="updates-product" type="search" maxlength="100" placeholder="製品名で絞る"></label>
-        <label><span>状態</span><select id="updates-status">
-          <option value="">すべての状態</option>
-          <option value="Launched">一般提供</option>
-          <option value="In preview">プレビュー</option>
-          <option value="In development">開発中</option>
-          <option value="Retirement">廃止・退役</option>
-        </select></label>
-        <button type="submit" class="primary-button">検索</button>
-      </form>
-      <p id="updates-count" class="viewer-count" role="status">更新情報を読み込んでいます…</p>
-      <div class="viewer-body">
-        <nav class="updates-nav" aria-label="更新情報の一覧">
-          <ul id="updates-list" class="updates-list"></ul>
-          <button id="updates-retry" type="button" class="secondary-button" hidden>再読み込み</button>
-        </nav>
-        <article id="update-article" class="update-article" aria-label="選択した更新情報" tabindex="-1">
-          <p class="article-placeholder">一覧から更新情報を選んでください。選んだ記事をもとに、右のチャットで作業できます。</p>
-        </article>
-      </div>
+
+      <section id="learning-panel" class="learning-panel" role="dialog" aria-modal="false" aria-labelledby="learning-heading" hidden>
+        <div class="learning-header">
+          <h2 id="learning-heading" class="learning-title">学習モード: 直近の応答</h2>
+          <button id="close-learning" type="button" class="secondary-button" aria-label="学習モードを閉じる">閉じる</button>
+        </div>
+        <fieldset class="learning-views">
+          <legend class="visually-hidden">学習モードの表示</legend>
+          <label><input type="radio" name="learning-view" value="details" checked aria-controls="learning-details">詳細情報</label>
+          <label><input type="radio" name="learning-view" value="graph" aria-controls="learning-graph">グラフィカル学習モード</label>
+        </fieldset>
+        <div class="learning-content">
+          <div id="learning-graph" hidden>
+            <p class="flow-caption">上から開始・初回受信順、縦レーンは実行場所、色は処理の種類です。モデル・安全性検査の呼び出しは呼び出し先の列に配置します。内部 MCP と C# は同じ Hosted Agent 内です。列が収まらない場合は図を横にスクロールできます。矢印は受信順であり、依存関係や並列実行を示しません。</p>
+            <p class="flow-caption flow-observation-note">「実測」は Web または Agent 側で計測した開始・終了・所要時間です。計測元・親子関係・モデルごとのトークン数はノードを選択して確認できます。Web と Agent の収集状態は別々に表示し、異なる計測元の親子関係は推測しません。種別・実行場所・経路は構成情報で、実ホスト・リージョンは未計測です。</p>
+            <div id="learning-flow"></div>
+          </div>
+          <div id="learning-details">
+            <p class="flow-observation-note">実測したモデル呼び出し・内部処理・所要時間・親子関係は「グラフィカル学習モード」で確認できます。</p>
+            <div class="learning-header">
+              <button type="button" id="copy-kql" class="secondary-button" disabled>KQL をコピー</button>
+              <span id="copy-kql-status" class="copy-status" role="status"></span>
+            </div>
+            <dl class="learning-ids">
+              <div><dt>トレース ID</dt><dd id="learn-trace-id">-</dd></div>
+              <div><dt>応答 ID</dt><dd id="learn-response-id">-</dd></div>
+              <div><dt>会話 ID</dt><dd id="learn-conversation-id">-</dd></div>
+              <div><dt>トークン数</dt><dd id="learn-tokens">-</dd></div>
+            </dl>
+            <pre id="learn-kql" class="kql" hidden></pre>
+            <ol id="learn-tools" class="learning-tools"></ol>
+          </div>
+        </div>
+      </section>
     </section>
 
     <section class="chat-pane" aria-label="チャット">
@@ -88,20 +124,5 @@
     </section>
   </main>
 
-  <section id="learning-panel" class="learning-panel" aria-labelledby="learning-heading" hidden>
-    <div class="learning-header">
-      <h2 id="learning-heading" class="section-label">学習モード: 直近の応答</h2>
-      <button type="button" id="copy-kql" class="secondary-button" disabled>KQL をコピー</button>
-      <span id="copy-kql-status" class="copy-status" role="status"></span>
-    </div>
-    <dl class="learning-ids">
-      <div><dt>トレース ID</dt><dd id="learn-trace-id">-</dd></div>
-      <div><dt>応答 ID</dt><dd id="learn-response-id">-</dd></div>
-      <div><dt>会話 ID</dt><dd id="learn-conversation-id">-</dd></div>
-      <div><dt>トークン数</dt><dd id="learn-tokens">-</dd></div>
-    </dl>
-    <pre id="learn-kql" class="kql" hidden></pre>
-    <ol id="learn-tools" class="learning-tools"></ol>
-  </section>
 </body>
 </html>

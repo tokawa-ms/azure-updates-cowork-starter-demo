@@ -19,6 +19,8 @@ namespace UpdatesCowork.Shared.Contracts;
 [JsonDerivedType(typeof(DoneEvent))]
 [JsonDerivedType(typeof(ErrorEvent))]
 [JsonDerivedType(typeof(PingEvent))]
+[JsonDerivedType(typeof(TraceSpanEvent))]
+[JsonDerivedType(typeof(TraceStatusEvent))]
 public abstract record ChatEvent
 {
     [JsonIgnore]
@@ -102,6 +104,8 @@ public static class ChatEventNames
     public const string Done = "done";
     public const string Error = "error";
     public const string Ping = "ping";
+    public const string TraceSpan = "trace.span";
+    public const string TraceStatus = "trace.status";
 }
 
 /// <summary><c>error</c> イベントの <c>code</c>。</summary>

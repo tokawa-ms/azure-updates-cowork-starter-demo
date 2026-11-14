@@ -24,6 +24,8 @@ jobs:
         run: |
           dotnet test --configuration Release --no-build --filter 'Category!=Eval' 2>&1 | Tee-Object unit-tests.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check graphical learning operation classification
+        run: node --test tests\browser\learning-operations.test.mjs
       - name: Check evaluation CLI recovery without network
         shell: pwsh
         run: ./eval/tests/run-foundry.tests.ps1

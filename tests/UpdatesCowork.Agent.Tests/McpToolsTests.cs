@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using UpdatesCowork.Agent.Mcp;
+using UpdatesCowork.Agent.Learning;
 using UpdatesCowork.AzureUpdates;
 using UpdatesCowork.Shared;
 using UpdatesCowork.Shared.Contracts;
@@ -122,6 +123,28 @@ public sealed class McpToolsTests
     }
 
     [Fact]
+    public async Task ReachingTheTraceLimitDoesNotRejectBusinessCalls()
+    {
+        await using var environment = await McpEnvironment.CreateAsync();
+        var session = environment.Traces.CreateSession();
+        using (LearningTraceCollector.Enter(session))
+        {
+            for (var index = 0; index < LearningTraceRules.MaximumSpans; index++)
+            {
+                using var activity = environment.Telemetry.Source.StartActivity("model.call");
+            }
+            var function = Assert.IsAssignableFrom<AIFunction>(environment.Client.CreateTools(false, () => null)
+                .Single(tool => tool.Name == ToolNames.GetAzureUpdate));
+            var result = Assert.IsType<JsonElement>(await function.InvokeAsync(
+                new AIFunctionArguments { ["id"] = "559242" }, TestContext.Current.CancellationToken));
+            Assert.True(result.GetProperty("found").GetBoolean());
+            Assert.Equal(1, environment.Updates.Calls);
+        }
+        Assert.True(session.DroppedEvents > 0);
+        environment.Traces.Remove(session);
+    }
+
+    [Fact]
     public async Task ConcurrentSessionsAndRealOfficeSpansRemainIsolatedAcrossMcp()
     {
         var spans = new ConcurrentBag<Activity>();
@@ -133,17 +156,31 @@ public sealed class McpToolsTests
         };
         ActivitySource.AddActivityListener(listener);
         await using var environment = await McpEnvironment.CreateAsync();
+        var traces = new ConcurrentBag<TraceSpanEvent[]>();
         async Task<JsonElement> Create(string session)
         {
-            var tools = environment.Client.CreateTools(false, () => session);
-            var function = Assert.IsAssignableFrom<AIFunction>(tools.Single(tool => tool.Name == ToolNames.CreateWordReport));
-            var spec = new WordReportSpec("report", "更新情報", null, "ja-JP",
-                [new ReportSection("概要", Paragraphs: ["固定データの内容"])],
-                [new SourceRef("出典", "https://azure.microsoft.com/updates?id=559242")]);
-            return Assert.IsType<JsonElement>(await function.InvokeAsync(
-                new AIFunctionArguments { ["report"] = spec }, TestContext.Current.CancellationToken));
+            var measured = environment.Traces.CreateSession();
+            JsonElement result;
+            using (LearningTraceCollector.Enter(measured))
+            using (var root = environment.Telemetry.Source.StartActivity("agent.turn"))
+            {
+                var tools = environment.Client.CreateTools(false, () => session);
+                var function = Assert.IsAssignableFrom<AIFunction>(tools.Single(tool => tool.Name == ToolNames.CreateWordReport));
+                var spec = new WordReportSpec("report", "更新情報", null, "ja-JP",
+                    [new ReportSection("概要", Paragraphs: ["固定データの内容"])],
+                    [new SourceRef("出典", "https://azure.microsoft.com/updates?id=559242")]);
+                result = Assert.IsType<JsonElement>(await function.InvokeAsync(
+                    new AIFunctionArguments { ["report"] = spec }, TestContext.Current.CancellationToken));
+            }
+            var received = new List<TraceSpanEvent>();
+            while (measured.Events.Reader.TryRead(out var item))
+                if (item.Span is { } span) received.Add(span);
+            traces.Add([.. received]);
+            environment.Traces.Remove(measured);
+            return result;
         }
 
+        using var sharedTrace = new Activity("shared-request").SetIdFormat(ActivityIdFormat.W3C).Start();
         var results = await Task.WhenAll(Create("session-one"), Create("session-two"));
         Assert.Equal("session-one", results[0].GetProperty("artifact").GetProperty("sessionId").GetString());
         Assert.Equal("session-two", results[1].GetProperty("artifact").GetProperty("sessionId").GetString());
@@ -162,6 +199,23 @@ public sealed class McpToolsTests
         Assert.Contains(spans, span => span.OperationName == TelemetryNames.Spans.ArtifactSave);
         Assert.Contains(spans, span => span.Source.Name == TelemetryNames.Sources.McpSdk && span.Kind == ActivityKind.Client);
         Assert.Contains(spans, span => span.Source.Name == TelemetryNames.Sources.McpSdk && span.Kind == ActivityKind.Server);
+        Assert.Equal(2, traces.Count);
+        Assert.Equal(2, traces.Select(trace => trace[0].SpanId).Distinct(StringComparer.Ordinal).Count());
+        Assert.Single(traces.Select(trace => trace[0].TraceId).Distinct(StringComparer.Ordinal));
+        foreach (var trace in traces)
+        {
+            Assert.All(trace, span => Assert.True(LearningTraceRules.IsValid(span)));
+            var completed = trace.Where(span => span.Status == "completed").ToArray();
+            var root = Assert.Single(completed, span => span.Name == "agent.turn");
+            var client = Assert.Single(completed, span => span.Name == "mcp.call");
+            var server = Assert.Single(completed, span => span.Name == "mcp.tool.execute");
+            var build = Assert.Single(completed, span => span.Name == "office.word.build");
+            Assert.Equal(root.SpanId, client.ParentSpanId);
+            Assert.Equal(client.SpanId, server.ParentSpanId);
+            Assert.Equal(server.SpanId, build.ParentSpanId);
+            Assert.All(completed, span => Assert.Equal(root.TraceId, span.TraceId));
+            Assert.Contains(completed, span => span.Name == "artifact.save" && span.ParentSpanId == server.SpanId);
+        }
     }
 
     private sealed class McpEnvironment : IAsyncDisposable
@@ -172,6 +226,8 @@ public sealed class McpToolsTests
         public CoworkMcpServer Server { get; private set; } = null!;
         public Microsoft.AspNetCore.Builder.WebApplication Host { get; private set; } = null!;
         public McpClient RawClient { get; private set; } = null!;
+        public LearningTraceCollector Traces => _services.GetRequiredService<LearningTraceCollector>();
+        public AgentTelemetry Telemetry => _services.GetRequiredService<AgentTelemetry>();
         private ServiceProvider _services = null!;
         private HttpClient _http = null!;
 

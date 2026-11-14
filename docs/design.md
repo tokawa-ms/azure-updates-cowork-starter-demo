@@ -435,7 +435,23 @@ azure-updates-cowork/
 | 承認カード | `approval.requested`を受け取ったら「作成する」「やめる」を出す(承認機能を有効にしたときだけ) |
 | 成果物カード | ファイル名、種類、サイズ、ダウンロードボタン |
 | 評価ボタン | 応答ごとに「役に立った」「役に立たなかった」と任意のコメント |
-| 学習モードの下部パネル | トレースID、応答ID、会話ID、トークン数、ツール呼び出しの引数と結果(JSON、2 KBまで)、トレースIDで絞り込むKQLのコピーボタン |
+| 学習モードのオーバーレイ | 左の更新情報ライブラリーに重ね、トレースID、応答ID、会話ID、トークン数、ツールの引数・結果(JSON、2 KBまで)、KQLのコピーと実行フローを表示する |
+
+学習表示は左ペイン内で絶対配置し、開閉やイベント数で右のチャットの位置・高さを変えない。開いている間は背後のライブラリーだけを`inert`にし、チャットの送信・停止・承認は引き続き操作できる。ページ全体のモーダルではないため`aria-modal="false"`とし、手動で開いたら閉じるボタンへフォーカスする。「閉じる」またはEscapeで閉じ、学習表示内にあったフォーカスは切り替えへ戻す。チャットにあるフォーカスは移動しない。小さい画面でもライブラリーの領域内に重ね、表示内容はオーバーレイ内でスクロールする。
+
+グラフと選択した処理の詳細は、ヘッダー・説明を除いた残りの高さを下端まで使う。画面高さの割合による上限は設けず、それぞれの領域内でスクロールする。横に並べられない幅では残りの高さを上下に分け、閉じるボタンを常に操作できるようにする。各ノードには構成上の実行場所を表示し、詳細でAgentコンテナー内、Webサーバー、ブラウザー、Foundryのモデルサービスを区別する。Azureとローカルでの配置の違いを補足し、ツールが触る外部リソースをそのツールの実行場所とは混同しない。実ホスト名やリージョンを計測した表示ではなく、未知ツールの場所は「未確認」とする。
+
+学習モードは「詳細情報」と「グラフィカル学習モード」を切り替えられる。グラフィカル表示は直近の応答で受信した実測スパンと、ツール、実行計画、承認要求、成果物、回答の受信イベントをノードで示す。ノードは開始・初回受信順に並び、状態を随時更新する。矢印は受信順であり、依存関係や並列実行を表さない。実測した親子関係は各ノードの親ラベルと詳細のリンクで確認する。失敗、処理の取消、応答の中断、画面での受信停止を区別し、終了を受信していない処理は「完了未確認」とする。表示の選択はブラウザーに保存する。過去の応答の再生とモデル内部の思考の表示は含めない。
+
+縦レーンは「ブラウザー」「Container Apps（Web / BFF）」「Foundry Hosted Agent」「Foundry Models」の実行場所を示す。Azure AI Content Safetyと実行場所未確認の列は、該当するノードを受信した場合だけ追加する。モデル呼び出しと安全性検査は呼び出し先のサービス列に配置するが、計測点はAgent側であり、サービス内の実行を直接計測したものではない。内部MCP、C#ツール、Office生成・保存はHosted Agent列に揃える。更新情報取得はキャッシュ・固定データも含むためAgent列とし、未計測の外部通信や保存リソースを推測で追加しない。色と種別ラベルは「モデル」「コード実行」「MCP呼び出し」「その他・未確認」の区分を保ち、実行状態は別のラベルで表示する。実測がある場合はモデルクライアントの各呼び出し、ツール実行、MCPクライアント、MCPサーバー、取得・安全性検査・Office生成・保存を分ける。同じ`callId`のツール受信イベントと実測は一つのノードにまとめ、引数・結果の表示を維持する。回答テキストの受信はモデル呼び出しと数えない。実測が届かない旧Agentでは従来の受信イベントだけを表示し、回数は未確認とする。未知ツールは名前から分類せず「未確認」とする。狭い画面でも場所別の列を維持し、図の内部で横にスクロールする。
+
+各ノードの対象リソース・実行場所・実装経路は構成情報であり、実測時刻とは区別する。「実測」ノードでは計測元（Web／Agent）、開始・終了UTC、所要時間、計測コンテキストに基づく親子関係、受信できたモデル名・入力／出力トークン数・キャッシュ状態を表示する。親は計測対象の直近の祖先で、SDKの中間スパンは省略する。SDKがActivityのオブジェクト参照を引き継がない場合も、同じTrace IDの非同期計測スコープを保持する。時間は各計測元のクライアント／コード実行の経過時間で、通信、ストリーミング受信やSDK内部の再試行を含み得る。モデルサービスの推論時間や個別HTTP要求の件数ではない。親子の時間は重なるため合算しない。未受信値を0や成功で補わず、収集中、収集完了、一部省略、形式不正、収集終了未確認を表示する。
+
+`WebLearningTrace`はContainer Apps側の要求受付・検証、応答処理全体、会話作成、Hosted Agent呼び出し、SSE変換・中継、成果物台帳登録を実測する。`UpdatesCowork.Web`のActivityを使い、固定名・ID・時刻・状態だけを画面へ投影する。SSE中継は初回イベント受信から受信終了までの経過時間で、次のイベント待機と台帳登録も含む。ブラウザーへの到達時刻やCPU時間ではない。要求の受付・検証はAPIハンドラー内の範囲で、認証ミドルウェアや静的ファイル配信は含まない。SSE開始前にHTTPエラーで拒否した要求は監視側だけに残す。Webも最大128スパンで、省略数を通知する。WebとAgentの収集状態・件数は別管理とし、スパンのキーは計測元・Trace ID・Span IDの組とする。異なる計測元の親子関係は補完しない。通常のデスクトップ幅ではContent Safetyを含む5列が収まる最小幅にし、小さい画面だけ図内を横スクロールする。
+
+Agentの`LearningChatClient`は`AsAIAgent`の`clientFactory`でモデルクライアントを装飾し、ツール呼び出しの前後に行う各モデル呼び出しを計測する。ツール内で今後モデルを呼ぶ場合も、この装飾または同じ計測契約が必要で、未計装のライブラリー内部までは自動で検出しない。現在のWord／PowerPoint生成ツールはC#／Open XMLだけを実行し、内部でモデルは呼ばない。
+
+`LearningTraceCollector`は1依頼のAsyncLocalスコープ内で、8.3節の許可したAgentスパンのみを収集する。内部MCPにはモデルの引数ではないランダムな依頼別nonceと計測済み親スパンIDを渡し、サーバーが有効な組を検証して同じスコープを復元する。登録は応答の後始末で削除する。最大128スパン、512イベントのキューとし、省略数を明示する。プロンプト、推論、ツール引数、本文、URL、例外本文、任意のActivity属性は転送しない。
 
 JavaScriptのモジュール構成は次のとおり。
 
@@ -443,6 +459,8 @@ JavaScriptのモジュール構成は次のとおり。
 - `js/viewer.js`: 一覧・詳細取得、検索、AbortControllerによる古い要求の取り消し、`?id=`と戻る・進むの同期、再読み込み。記事本文をモデルへ送らない。
 - `js/sse.js`: `fetch`と`ReadableStream`でPOSTのSSEを読む関数`postSse(url, body, onEvent, signal)`。`event:`と`data:`の行を組み立て、`ping`は無視する。
 - `js/render.js`: Markdown表示、進行状況、ツールの動き、承認カード、成果物カード、学習モードの表示。
+- `js/learning-flow.js`: 学習モードの実行フロー、ノードの選択と詳細、応答終了時の状態の表示。
+- `js/learning-operations.js`: 確認済みの処理種別、対象リソースと実装経路。分類のテストは依存追加なしの`node --test tests\browser\learning-operations.test.mjs`で実行し、CIにも含める。
 
 #### 画面向けAPI
 
@@ -883,6 +901,8 @@ public interface IAzureUpdatesClient
 | `artifact.created` | `{ artifactId, fileName, kind, sizeBytes, downloadUrl }` | 成果物ツールの`function_call_output` (台帳に登録したあと) |
 | `approval.requested` | `{ approvalRequestId, toolName, argumentsPreview }` | `response.output_item.added` (`item.type = mcp_approval_request`) |
 | `usage` | `{ inputTokens, outputTokens, totalTokens }` | `response.completed`の`response.usage` |
+| `trace.span` | `{ source: "agent" / "web", traceId, spanId, parentSpanId?, name, startedAt, status, endedAt?, durationMs?, toolName?, callId?, model?, inputTokens?, outputTokens?, cacheHit? }` | Agentの`auc_trace.span`、またはWeb自身の実測 |
+| `trace.status` | `{ source: "agent" / "web", status: "started" / "complete" / "limited" / "invalid", droppedEvents }` | Agentの`auc_trace.status`、Webの検証失敗、またはWeb自身の収集状態 |
 | `done` | `{ status: "completed" / "incomplete", reason?, responseId }` | `response.completed`、`response.incomplete` |
 | `error` | `{ code, message, traceId }` | `response.failed`、`error`、HTTPエラー、タイムアウト |
 | `ping` | `{}` | 15秒イベントがないとき |
@@ -891,6 +911,9 @@ public interface IAzureUpdatesClient
 - 推論の要約(`reasoning`)は画面には出さない。学習モードでは件数だけを出す。
 - 知らないイベントは捨て、Debugレベルでログに残す。
 - `error.message`には利用者向けの短い文だけを入れ、例外の中身は入れない。
+- Agentは標準の`response.in_progress`イベントの追加JSON領域`auc_trace`に、`type: "response.auc.trace"`と`responseId`、`span`または`status`を載せる。`response.created`の応答スナップショットを保持し、回答や架空のツール呼び出しとしては送らない。固定SDKでは未知イベントを`ModelReaderWriter`で往復できても、HTTP/SSEシリアライザーで再帰するため、この標準進捗イベントを使う。SDKのHTTPサーバーを通す結合テストで保持を検証する。`response.created`を先頭、終了応答を末尾に維持し、`sequence_number`を振り直す。Webは`responseId`、AgentのTrace ID、許可した名前・値、最大件数とスパンの遷移を検証し、安全な型へ再投影する。不正な実測は警告と`trace.status: invalid`にし、通常の回答を止めない。実測の`status`は`running`／`completed`／`failed`／`cancelled`で、画面の受信停止とは別の状態である。
+
+`trace.span`／`trace.status`の`source`省略は旧Agent互換で`agent`として扱う。Agentから`web`を名乗る計測は拒否する。Web自身の計測はAgentの検証経路と分離して送信し、`meta`より先に届くことがある。Webの終了スパン・収集状態・会話台帳更新を終えてから、最後の`done`または`error`を送る。
 
 ### 6.4 BFF → Hosted Agent (Responses)
 
@@ -1117,8 +1140,16 @@ ActivitySourceとメーターの名前: `UpdatesCowork.Web`、`UpdatesCowork.Age
 |---|---|---|
 | `chat.turn` | web | `auc.thread_id`、`gen_ai.conversation.id`、`gen_ai.response.id`、`auc.page.update_id`、`auc.action`、`auc.user_key`、`auc.ttft_ms`、`auc.events` |
 | `agent.conversation.create` | web | `gen_ai.conversation.id` |
+| `web.request.prepare` | web | APIハンドラー内の受付・入力検証・会話の準備。`auc.outcome` |
+| `web.agent.invoke` | web | Hosted Agentの応答ストリーム全体の呼び出し。`auc.outcome` |
+| `web.sse.relay` | web | 初回受信からイベント変換・送信キュー投入の終了まで。`auc.outcome` |
+| `web.artifact.register` | web | 成果物台帳への登録。`auc.outcome` |
 | `artifact.download` | web | `auc.artifact.id`、`auc.artifact.kind` |
 | `artifact.session_file.read`、`artifact.session.delete` | web | `auc.artifact.storage` (readのみ) |
+| `agent.turn` | agent | 1回のResponsesハンドラー実行。本文・引数は記録しない |
+| `model.call` | agentのモデルクライアント | `gen_ai.request.model`、取得可能な`gen_ai.usage.input_tokens`、`gen_ai.usage.output_tokens` |
+| `tool.execute` | agentのツールミドルウェア | `gen_ai.tool.name`、`gen_ai.tool.call.id`、`auc.outcome` |
+| `mcp.call` | agentのMCPクライアント | `gen_ai.tool.name` |
 | `azure_updates.get`、`azure_updates.search` | agent | `auc.update.id`、`auc.cache_hit`、`auc.items` |
 | `office.word.build`、`office.pptx.build` | agent | `auc.items`、`auc.validation_errors`、`auc.bytes` |
 | `artifact.save` | agent | `auc.artifact.id`、`auc.artifact.storage` |

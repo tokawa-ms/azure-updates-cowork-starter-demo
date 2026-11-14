@@ -435,7 +435,23 @@ Pin the versions verified at the time of research. For those marked "latest stab
 | Approval card | On receiving `approval.requested`, show "Create" and "Cancel" (only when the approval feature is enabled) |
 | Artifact card | File name, type, size, download button |
 | Rating buttons | "Helpful" / "Not helpful" and an optional comment for each response |
-| Learning mode bottom panel | Trace ID, response ID, conversation ID, token counts, tool call arguments and results (JSON, up to 2 KB), and a button to copy KQL filtered by trace ID |
+| Learning mode overlay | Overlays the left update library with trace, response, and conversation IDs, token counts, tool arguments/results (JSON, up to 2 KB), KQL copying, and the execution flow |
+
+The learning view is absolutely positioned inside the left pane, so opening it or receiving more events never changes the chat's position or height. Only the underlying library becomes `inert`; chat sending, stopping, and approval remain available. This is not a page-wide modal, so it uses `aria-modal="false"`. Opening it manually focuses the close button. The close button or Escape closes it; focus inside the overlay returns to the learning toggle, while focus in chat is left in place. Small screens also keep the overlay inside the library area, with content scrolling within the overlay.
+
+The graph and selected-operation details fill the remaining height below the header and explanations, down to the overlay's bottom edge. Neither is capped at a fraction of viewport height; each scrolls internally. Narrower containers divide the remaining height vertically while keeping the close button available. Each node shows its architectural execution location; details distinguish the Agent container, Web server, browser, and Foundry model service, with Azure/local differences explained. External resources accessed by a tool are not treated as that tool's execution location. Actual host names and regions are not measured; unknown tools keep an unconfirmed location.
+
+Learning mode switches between details and a graphical view of the latest response. The graph shows measured spans alongside received tool, plan, approval, artifact, and answer events. Nodes follow start/first-received order and update as events arrive. Arrows indicate reception order, not dependencies or parallel execution; measured parent-child relationships appear in parent labels and detail links. Failures, operation cancellation, incomplete responses, and browser reception stops are distinguished. Operations without a received ending remain unconfirmed. Display preferences persist in the browser. History replay and internal model reasoning are out of scope.
+
+Vertical lanes represent the browser, Container Apps (Web/BFF), Foundry Hosted Agent, and Foundry Models. Azure AI Content Safety and an unconfirmed-location lane appear only when corresponding nodes arrive. Dedicated model and safety calls use their destination-service lanes, while timing is still measured at the Agent client, not inside the service. Internal MCP, C# tools, Office generation, and saving share the Hosted Agent lane. Update retrieval stays in the Agent lane because it can read caches or fixtures; unmeasured external calls or storage resources are not invented. Colors and type badges still distinguish models, code, MCP calls, and other/unconfirmed operations; status is separate. Measured spans distinguish individual model-client calls, tool execution, MCP client/server operations, retrieval, safety checks, Office generation, and saving. Tool events and measurements sharing a `callId` use one node while preserving argument/result previews. Receiving answer text is not counted as another model call. Older agents without measured traces retain event-only rendering and explicitly unconfirmed call counts. Unknown tools are not classified from their names. Narrow screens retain location-based columns with horizontal scrolling inside the graph.
+
+Resource, location, and implementation-route descriptions are architectural information, separate from measurements. Measured nodes show their Web/Agent origin, start/end UTC, elapsed time, context-based parent-child relationships, and available model names, token counts, and cache status. Parents are the nearest measured ancestors; intermediate SDK spans are omitted. An asynchronous measured scope with the same trace ID is retained even when SDK Activity object references do not preserve ancestry. Timing is client/code elapsed time at each origin and may include networking, streamed reception, and SDK retries; it is not service-side inference time or an individual HTTP request count. Parent and child durations overlap and must not be added. Missing values are not replaced with zero or success. Collection-in-progress, complete, limited, invalid, and unconfirmed-ending states are explicit.
+
+`WebLearningTrace` measures request handling/validation, the Web turn, conversation creation, Hosted Agent invocation, SSE transformation/relay, and artifact registration in Container Apps. It uses `UpdatesCowork.Web` Activities and projects only fixed names, IDs, timestamps, and status. SSE relay covers first receipt through the end of enumeration, including inter-event waiting and registry work, not CPU time or arrival in the browser. Preparation covers the API handler, not authentication middleware or static-file delivery. HTTP rejections before SSE remain visible only in monitoring. Web collection also has a 128-span cap with explicit omissions. Web and Agent collection states/counts are independent. Keys combine origin, trace ID, and span ID; cross-origin parentage is not invented. The minimum column width allows the usual five lanes, including Content Safety, to fit at normal desktop widths, while smaller screens scroll inside the graph.
+
+`LearningChatClient` decorates the underlying model client through `AsAIAgent`'s `clientFactory`, measuring each model invocation around tool execution. Future tools that call models must use this decorator or the same measurement contract; uninstrumented third-party internals are not automatically discovered. Current Word/PowerPoint tools run C#/Open XML without internal model calls.
+
+`LearningTraceCollector` collects only allowlisted Agent spans within a per-turn AsyncLocal scope. Internal MCP carries a random per-turn nonce and recorded parent span ID as host-controlled metadata, not model arguments. The server verifies the active pair before restoring scope; registration is removed during response cleanup. Limits are 128 spans and a 512-event queue, with omissions explicitly counted. Prompts, reasoning, tool arguments, document content, URLs, exception messages, and arbitrary Activity tags are excluded.
 
 The JavaScript module structure is as follows.
 
@@ -443,6 +459,8 @@ The JavaScript module structure is as follows.
 - `js/viewer.js`: Fetching list and details, search, cancelling stale requests with AbortController, syncing `?id=` with back/forward, and reload. Does not send article bodies to the model.
 - `js/sse.js`: The function `postSse(url, body, onEvent, signal)` that reads POST SSE with `fetch` and `ReadableStream`. Assembles `event:` and `data:` lines and ignores `ping`.
 - `js/render.js`: Markdown display, progress, tool activity, approval cards, artifact cards, and learning mode display.
+- `js/learning-flow.js`: Execution flow in learning mode, node selection and details, and response completion states.
+- `js/learning-operations.js`: Verified operation categories, target resources, and implementation routes. Classification tests run without additional dependencies using `node --test tests\browser\learning-operations.test.mjs` and are included in CI.
 
 #### Server-side API
 
@@ -889,6 +907,8 @@ Each event is sent as a pair of `event: <name>` and `data: <JSON>`.
 | `artifact.created` | `{ artifactId, fileName, kind, sizeBytes, downloadUrl }` | `function_call_output` of an artifact tool (after registering in the registry) |
 | `approval.requested` | `{ approvalRequestId, toolName, argumentsPreview }` | `response.output_item.added` (`item.type = mcp_approval_request`) |
 | `usage` | `{ inputTokens, outputTokens, totalTokens }` | `response.usage` of `response.completed` |
+| `trace.span` | `{ source: "agent" / "web", traceId, spanId, parentSpanId?, name, startedAt, status, endedAt?, durationMs?, toolName?, callId?, model?, inputTokens?, outputTokens?, cacheHit? }` | Agent `auc_trace.span`, or Web measurements |
+| `trace.status` | `{ source: "agent" / "web", status: "started" / "complete" / "limited" / "invalid", droppedEvents }` | Agent `auc_trace.status`, Web validation failure, or Web collection state |
 | `done` | `{ status: "completed" / "incomplete", reason?, responseId }` | `response.completed`, `response.incomplete` |
 | `error` | `{ code, message, traceId }` | `response.failed`, `error`, HTTP errors, timeouts |
 | `ping` | `{}` | When there are no events for 15 seconds |
@@ -897,6 +917,9 @@ Each event is sent as a pair of `event: <name>` and `data: <JSON>`.
 - Reasoning summaries (`reasoning`) are not shown on screen. In learning mode, only the count is shown.
 - Unknown events are discarded and logged at Debug level.
 - `error.message` contains only a short user-facing sentence, not the contents of exceptions.
+- Agent carries an envelope with `type: "response.auc.trace"`, `responseId`, and either `span` or `status` in the additional JSON field `auc_trace` of standard `response.in_progress` events. It retains the initial response snapshot, without encoding traces as answers or fictitious tool calls. The pinned SDK round-trips unknown events through `ModelReaderWriter` but its HTTP/SSE serializer recurses on them, so the standard progress carrier is covered by an actual SDK HTTP-server integration test. `response.created` stays first, terminal response last, and `sequence_number` is reassigned. Web validates response correlation, a single Agent trace ID, allowlisted values/names, limits, and span transitions before projecting safe types. Invalid traces produce a warning and `trace.status: invalid` without interrupting the answer. Span states are `running`, `completed`, `failed`, or `cancelled`, distinct from stopping reception in the browser.
+
+Missing `source` in trace events defaults to `agent` for older agents. Agent events claiming a Web origin are rejected. Web measurements are emitted independently of Agent validation and may precede `meta`. Web ending spans, collection status, and conversation-registry updates finish before the final `done` or `error`.
 
 ### 6.4 BFF → Hosted Agent (Responses)
 
@@ -1127,8 +1150,16 @@ Spans you create yourself are as follows.
 |---|---|---|
 | `chat.turn` | web | `auc.thread_id`, `gen_ai.conversation.id`, `gen_ai.response.id`, `auc.page.update_id`, `auc.action`, `auc.user_key`, `auc.ttft_ms`, `auc.events` |
 | `agent.conversation.create` | web | `gen_ai.conversation.id` |
+| `web.request.prepare` | web | API handler acceptance, validation, and conversation preparation; `auc.outcome` |
+| `web.agent.invoke` | web | Hosted Agent response-stream invocation; `auc.outcome` |
+| `web.sse.relay` | web | First event receipt through transformation/queue completion; `auc.outcome` |
+| `web.artifact.register` | web | Artifact registry update; `auc.outcome` |
 | `artifact.download` | web | `auc.artifact.id`, `auc.artifact.kind` |
 | `artifact.session_file.read`, `artifact.session.delete` | web | `auc.artifact.storage` (read only) |
+| `agent.turn` | Agent | One Responses handler invocation; no content or arguments |
+| `model.call` | Agent model client | `gen_ai.request.model`, available `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens` |
+| `tool.execute` | Agent tool middleware | `gen_ai.tool.name`, `gen_ai.tool.call.id`, `auc.outcome` |
+| `mcp.call` | Agent MCP client | `gen_ai.tool.name` |
 | `azure_updates.get`, `azure_updates.search` | agent | `auc.update.id`, `auc.cache_hit`, `auc.items` |
 | `office.word.build`, `office.pptx.build` | agent | `auc.items`, `auc.validation_errors`, `auc.bytes` |
 | `artifact.save` | agent | `auc.artifact.id`, `auc.artifact.storage` |

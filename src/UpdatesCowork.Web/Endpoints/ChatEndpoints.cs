@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Options;
 using UpdatesCowork.Shared;
 using UpdatesCowork.Shared.Contracts;
+using UpdatesCowork.Shared.Telemetry;
 using UpdatesCowork.Web.AgentGateway;
 using UpdatesCowork.Web.Artifacts;
 using UpdatesCowork.Web.Chat;
@@ -74,6 +75,8 @@ internal static partial class ChatEndpoints
         ChatOrchestrator orchestrator,
         CancellationToken ct)
     {
+        var trace = new WebLearningTrace();
+        using var preparation = trace.Start(TelemetryNames.Spans.WebRequestPrepare, cancellationToken: ct);
         if (UserKeys.Get(context) is not { } userKey)
         {
             return ApiResults.Unauthorized();
@@ -108,10 +111,12 @@ internal static partial class ChatEndpoints
         var turn = new ChatTurnInput
         {
             Thread = thread,
+            WebTrace = trace,
             Action = input!.Action,
             Page = input.Page,
             Message = input.Message,
         };
+        preparation.Complete();
         return ServerSentEvents(context, orchestrator.RunAsync(turn, context.RequestAborted));
     }
 
@@ -124,6 +129,8 @@ internal static partial class ChatEndpoints
         IOptions<AgentOptions> agentOptions,
         CancellationToken ct)
     {
+        var trace = new WebLearningTrace();
+        using var preparation = trace.Start(TelemetryNames.Spans.WebRequestPrepare, cancellationToken: ct);
         // 承認は任意機能。無効なときは API がないものとして扱う。
         if (!webOptions.Value.Features.Approvals)
         {
@@ -162,8 +169,10 @@ internal static partial class ChatEndpoints
         var turn = new ChatTurnInput
         {
             Thread = thread,
+            WebTrace = trace,
             Approval = new AgentApprovalResponse(request.ApprovalRequestId, request.Approve),
         };
+        preparation.Complete();
         return ServerSentEvents(context, orchestrator.RunAsync(turn, context.RequestAborted));
     }
 

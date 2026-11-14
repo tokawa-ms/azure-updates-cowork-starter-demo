@@ -3,6 +3,7 @@ using Microsoft.Agents.AI;
 using UpdatesCowork.Agent.Artifacts;
 using UpdatesCowork.Agent.Tools;
 using UpdatesCowork.Agent.Mcp;
+using UpdatesCowork.Agent.Learning;
 using UpdatesCowork.AzureUpdates;
 using UpdatesCowork.Office;
 
@@ -16,6 +17,7 @@ internal static class ToolServices
         services.AddSingleton(credential);
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<AgentTelemetry>();
+        services.AddSingleton<LearningTraceCollector>();
         services.AddAzureUpdatesClient(configuration);
         services.AddOfficeDocuments();
         services.AddHttpClient<PromptShieldClient>(client => client.Timeout = TimeSpan.FromSeconds(20));
