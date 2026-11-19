@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "09 導入する: 自社への適用"
-description: Agent Ops の仕組みを自社のエージェントに当てはめるために、機能の対応、導入前に決めること、機能の提供状況、3 つの段階の進め方をまとめます。
+description: Agent Ops の仕組みを自社のエージェントに当てはめるために、機能の対応、導入前に決めること、機能の提供状況、継続的改善までの 3 つの段階の進め方をまとめます。
 main_class: lesson
 permalink: /adoption/
 ---
@@ -10,7 +10,7 @@ permalink: /adoption/
 
 # 自社のエージェントに Agent Ops を当てはめる
 
-<p class="lesson-lead">このガイドで確かめた仕組みは、Agent Framework と Microsoft Foundry にそろっています。自社の業務に移すときは、部品と評価シナリオを置き換え、記録、費用、プレビュー機能、自動化の範囲を先に決めます。</p>
+<p class="lesson-lead">このガイドで確かめた仕組みは、Agent Framework と Microsoft Foundry にそろっています。自社の業務に移すときは、部品と評価シナリオを置き換え、記録、費用、プレビュー機能、継続的改善の進め方を先に決めます。</p>
 
 <section class="lesson-section" markdown="1">
 <div class="section-marker">01 / MAP</div>
@@ -27,7 +27,7 @@ Agent Ops の活動ごとに、使う機能、このリポジトリで確かめ�
 | 見る | トレースとモニター（Application Insights） | Web から Word の保存までを 1 本で追跡した | [第 5 章]({{ '/observability/' | relative_url }}) |
 | 測る | Foundry の評価器と、コードによる検査 | 固定 30 件、8 指標で版ごとに判定した | [第 6 章]({{ '/evaluation/' | relative_url }}) |
 | 直す | 判定の理由とトレースの照合 | v6 から v12 で、8 指標すべてが基準に届いた | [第 7 章]({{ '/improvement/' | relative_url }}) |
-| 回し続ける | 継続評価、Insights、最適化、版の固定 | 実施していない（設計だけ） | [第 8 章]({{ '/automation/' | relative_url }}) |
+| 回し続ける | 利用者の評価の注釈、アラート、版の比較と固定、Insights、最適化、継続評価 | 利用者の評価の注釈、低い評価のアラート、版の統計的な比較、CI の基準比較を実装した。Insights、最適化、継続評価は使っていない | [第 8 章]({{ '/automation/' | relative_url }}) |
 
 </div>
 </section>
@@ -42,11 +42,11 @@ Agent Ops の仕組みを本番で使う前に、次の 5 点を自社のポリ�
 
 | 項目 | 留意点 | 進め方 |
 |---|---|---|
-| 本文の記録 | 本番の採点には、トレースに残る入出力の本文が必要です。アプリの設定とは別に、基盤側で本文が記録される場合もあります | 記録の範囲、同意、閲覧権限、保持期間を決める |
-| 評価の範囲 | 固定シナリオでの合格は、未知の入力での品質を保証しません | 本番で失敗した依頼を、評価シナリオに加え続ける |
+| 本文の記録 | 本番の採点には、トレースに残る入出力の本文が必要です。アプリの設定とは別に、基盤側で本文が記録される場合もあります。利用者の評価のコメントにも個人情報が入るおそれがあります | 記録の範囲、同意、閲覧権限、保持期間を決める |
+| 評価の範囲 | 固定シナリオでの合格は、未知の入力での品質を保証しません | 本番で失敗した依頼や低い評価を受けた応答を、評価シナリオに加え続ける |
 | 費用 | セッション、トレースの量、判定用と最適化用のモデルに費用がかかります | 採点の頻度、サンプル数、保持期間を調整する |
-| プレビュー | 継続評価、アラート、Insights、最適化、一部の評価器などはプレビューです | 本番の判断に使う範囲を決め、段階的に取り入れる |
-| 自動化 | 改善案を自動で反映すると、意図しない変更が本番に入るおそれがあります | 反映前の承認と、前の版に戻す手順を用意する |
+| プレビュー | トレースの注釈、継続評価、アラート、Insights からの最適化、一部の評価器などはプレビューで、エージェントの最適化は限定プレビューです | 本番の判断に使う範囲を決め、段階的に取り入れる |
+| 反映の判断 | 改善案を自動で反映すると、意図しない変更が本番に入るおそれがあります。合格率の差が、評価の揺れの範囲に収まることもあります | 統計的な比較で差を確かめ、反映前の承認と、前の版に戻す手順を用意する |
 
 </div>
 </section>
@@ -57,7 +57,7 @@ Agent Ops の仕組みを本番で使う前に、次の 5 点を自社のポリ�
 
 ## 機能の提供状況を確かめる
 
-GA の機能とプレビューの機能を分け、本番の判断に使う範囲を決めます。次の表は、2026 年 11 月 14 日に Microsoft Learn で確かめた内容です。
+GA の機能とプレビューの機能を分け、本番の判断に使う範囲を決めます。次の表は、2026 年 11 月 19 日に Microsoft Learn と Microsoft の公式ブログで確かめた内容です。「代わりの実装」は、Foundry の機能を使わずに、同じ目的をリポジトリのコードや手順で満たしている項目です。
 
 | 機能 | 提供状況 | このリポジトリ |
 |---|---|---|
@@ -66,16 +66,19 @@ GA の機能とプレビューの機能を分け、本番の判断に使う範�
 | 評価 | <span class="status status-ga">GA</span> 一部の評価器と機能はプレビュー | 使用 |
 | 評価器: タスクの遵守、意図の解決 | <span class="status status-preview">プレビュー</span> | 使用 |
 | モニター（Agent Monitoring Dashboard） | <span class="status status-preview">プレビュー</span> | 画面で確認 |
+| トレースの注釈（開発者、利用者） | <span class="status status-preview">プレビュー</span> | 実装。利用者の評価を注釈と同じ形で記録 |
+| アラート | <span class="status status-preview">プレビュー</span> | 代わりの実装。Azure Monitor のログ検索アラート |
+| GitHub Actions、Azure DevOps の評価（統計的な比較を含む） | <span class="status status-preview">プレビュー</span> | 代わりの実装。EvalRunner の <code>compare</code> と CI の基準比較 |
+| トレースから評価データを作る、ゴールデン データセット | <span class="status status-preview">プレビュー</span> | 代わりの手順。低い評価から <code>core.jsonl</code> に足し、SHA-256 で版を固定 |
+| Insights | <span class="status status-ga">GA</span> | 未実施 |
 | 継続評価、スケジュールされた評価 | <span class="status status-preview">プレビュー</span> | 未実施 |
-| カスタム評価器 | <span class="status status-preview">プレビュー</span> | 未実施 |
-| アラート | <span class="status status-preview">プレビュー</span> | 未実施 |
-| Insights | <span class="status status-preview">プレビュー</span> | 未実施 |
-| トレースから評価データを作る | <span class="status status-preview">プレビュー</span> | 未実施 |
+| カスタム評価器、ルーブリック評価器 | <span class="status status-preview">プレビュー</span> | 未実施 |
 | 評価用の azd 拡張（`azure.ai.evaluations`） | <span class="status status-preview">プレビュー</span> | 未実施 |
 | エージェントの最適化 | <span class="status status-limited">限定プレビュー</span> | 未実施 |
+| Insights からの最適化、スキルの最適化 | <span class="status status-preview">プレビュー</span> | 未実施 |
 | レッドチーミング | <span class="status status-ga">GA</span> モニターの定期スキャンはプレビュー | 未実施 |
 
-<p class="inline-note">ツール呼び出しの精度の評価器には、プレビューの表示がありません。提供状況は変わるため、導入するときに「Microsoft Foundry portal general availability overview」と各機能のページで最新の情報を確かめてください。</p>
+<p class="inline-note">ツール呼び出しの精度の評価器には、プレビューの表示がありません。Insights の GA は、Azure Blog の「Continuous improvement comes to Microsoft Foundry」と Microsoft Foundry Blog の「What's new in Foundry Agent Service at Ignite 2026」で案内されています。提供状況は変わるため、導入するときに「Microsoft Foundry portal general availability overview」と各機能のページで最新の情報を確かめてください。</p>
 
 </div>
 </section>
@@ -84,14 +87,14 @@ GA の機能とプレビューの機能を分け、本番の判断に使う範�
 <div class="section-marker">04 / STEPS</div>
 <div class="section-content" markdown="1">
 
-## 3 つの段階で、観測から改善の自動化まで整える
+## 3 つの段階で、観測から継続的改善まで整える
 
-最初は 1 つの業務に絞ります。各段階の終わりに結果を確かめ、次の段階へ進むかを判断します。
+最初は 1 つの業務に絞ります。各段階の終わりに結果を確かめ、次の段階へ進むかを判断します。3 つ目の段階は、第 8 章で扱った継続的改善の 4 つのステップ（確立、特定、最適化、検証して繰り返す）を本番に広げる段階です。
 
 <div class="principle-grid">
   <article><span>STEP 1 / 見る</span><h3>観測の土台</h3><ul><li>Hosted Agent への配置</li><li>トレースの接続と確認</li><li>本文を記録する範囲の決定</li></ul><p class="stage-result">完了の目安: 1 回の依頼を端から端まで追跡できる</p></article>
   <article><span>STEP 2 / 測る</span><h3>品質ゲート</h3><ul><li>代表シナリオと固定データ</li><li>評価器と合格基準の決定</li><li>評価用エージェントの分離</li></ul><p class="stage-result">完了の目安: 版ごとの合否レポートが出る</p></article>
-  <article><span>STEP 3 / 回す</span><h3>改善の自動化</h3><ul><li>本番の継続評価とアラート</li><li>本番の失敗の評価データ化</li><li>最適化と承認による反映</li></ul><p class="stage-result">完了の目安: 承認した改善だけが本番に入る</p></article>
+  <article><span>STEP 3 / 回す</span><h3>継続的改善</h3><ul><li>利用者の評価の記録とアラート</li><li>本番の失敗の評価データ化</li><li>版の統計的な比較と、承認による反映</li></ul><p class="stage-result">完了の目安: 出した版を基準に、次の版との差を確かめて反映できる</p></article>
 </div>
 
 ### 最初の一歩
@@ -109,7 +112,7 @@ GA の機能とプレビューの機能を分け、本番の判断に使う範�
 <div class="section-marker">05 / REFERENCES</div>
 <div class="section-content" markdown="1">
 
-## 参考資料: Microsoft Learn
+## 参考資料: Microsoft の公式情報
 
 ### 構築、配置、観測
 
@@ -128,10 +131,23 @@ GA の機能とプレビューの機能を分け、本番の判断に使う範�
 9. [Agent evaluators](https://learn.microsoft.com/azure/foundry/concepts/evaluation-evaluators/agent-evaluators): エージェント向けの評価器と入力。
 10. [Evaluate individual interactions from deployed models and agents](https://learn.microsoft.com/azure/foundry/observability/how-to/cloud-evaluation-deployed-interactions): 本番のトレースの採点。
 11. [Convert agent traces into evaluation datasets](https://learn.microsoft.com/azure/foundry/observability/how-to/traces-to-dataset): トレースから評価データを作る手順。
-12. [Use Insights in Foundry (preview)](https://learn.microsoft.com/azure/foundry/observability/how-to/agent-insights): 問題の分類と修正案。
+12. [Find recurring issues with insights](https://learn.microsoft.com/azure/foundry/observability/how-to/agent-insights): 繰り返す問題の分類と修正案。
 13. [What is the agent optimizer?](https://learn.microsoft.com/azure/foundry/agents/concepts/agent-optimizer-overview): 最適化の仕組みと結果の読み方。
 14. [Make your agent optimizer-ready](https://learn.microsoft.com/azure/foundry/agents/how-to/make-agent-optimizer-ready): 最適化に対応させるコードの変更。
 15. [Optimize skills in Microsoft Foundry (preview)](https://learn.microsoft.com/azure/foundry/agents/how-to/optimize-skills-from-traces): トレースからのスキルの改善。
+
+### 継続的改善（Ignite 2026）
+
+{:start="16"}
+16. [Continuous improvement comes to Microsoft Foundry](https://azure.microsoft.com/en-us/blog/continuous-improvement-comes-to-microsoft-foundry/)（Azure Blog、2026 年 11 月 17 日）: 確立、特定、最適化、検証して繰り返すの 4 つのステップ。
+17. [What's new in Foundry Agent Service at Ignite 2026](https://devblogs.microsoft.com/foundry/whats-new-in-foundry-agent-service-at-ignite-2026/)（Microsoft Foundry Blog）: 各機能の提供状況。
+18. [Annotate traces with human feedback](https://learn.microsoft.com/azure/foundry/observability/how-to/trace-annotations): 開発者と利用者の評価をトレースに付ける方法。
+19. [Log end user feedback](https://learn.microsoft.com/azure/foundry/observability/how-to/log-end-user-feedback): アプリから利用者の評価を送る方法。
+20. [Curate golden datasets](https://learn.microsoft.com/azure/foundry/observability/how-to/human-in-the-loop-golden-datasets): 注釈から評価データを作り、版を管理する方法。
+21. [Rubric evaluators](https://learn.microsoft.com/azure/foundry/concepts/evaluation-evaluators/rubric-evaluators): 業務の基準で採点する評価器。
+22. [Fix insights with agent optimizer](https://learn.microsoft.com/azure/foundry/agents/how-to/optimize-agents-from-insights): Insights の問題から最適化を始める手順。
+23. [How to run an evaluation in GitHub Action](https://learn.microsoft.com/azure/foundry/how-to/evaluation-github-action)、[How to run an evaluation in Azure DevOps](https://learn.microsoft.com/azure/foundry/how-to/evaluation-azure-devops): CI での評価と、版の統計的な比較。
+24. [Set up continuous and scheduled evaluation](https://learn.microsoft.com/azure/foundry/observability/how-to/continuous-scheduled-evaluation): 本番のトレースの継続評価と、スケジュールされた評価。
 
 </div>
 </section>
@@ -144,6 +160,7 @@ GA の機能とプレビューの機能を分け、本番の判断に使う範�
 - 自社のエージェントについて、作る、動かす、見る、測る、直すのそれぞれで使う機能を挙げられる。
 - 本番で本文を記録する範囲と、採点に使う指標を決められる。
 - プレビューの機能を、本番の判断にどこまで使うか説明できる。
+- 継続的改善の 4 つのステップのうち、自社で最初に整えるステップと、版の差を確かめる方法を決められる。
 - 3 つの段階のうち最初に取り組む段階と、その完了の目安を決められる。
 
 <div class="source-links">
@@ -154,6 +171,6 @@ GA の機能とプレビューの機能を分け、本番の判断に使う範�
 </section>
 
 <nav class="lesson-next" aria-label="章の移動">
-  <a href="{{ '/automation/' | relative_url }}"><small>前の章 / 08</small><span>回し続ける: 改善を自動化する</span></a>
+  <a href="{{ '/automation/' | relative_url }}"><small>前の章 / 08</small><span>回し続ける: 継続的改善のループ</span></a>
   <a class="next-link" href="{{ '/' | relative_url }}"><small>学習ガイド / END</small><span>トップへ戻る <b aria-hidden="true">→</b></span></a>
 </nav>

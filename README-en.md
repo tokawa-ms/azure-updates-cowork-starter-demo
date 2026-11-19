@@ -154,6 +154,15 @@ The 30 cases cover summaries, Word, PowerPoint, search/comparison, missing selec
 
 `eval\out\core` contains `summary.md`, `summary.json`, `report.html`, and the Foundry report URL. After interruption, use the same arguments with `-Resume` to reuse saved responses. The `check` exit codes are 0 for pass, 1 for failed gates, and 2 for invalid processing. PowerShell communication/build failures also exit nonzero. See [evaluation design and results](docs/notes/evaluation-en.md). Continuous evaluation and automatic scoring of all production traffic are not enabled.
 
+To compare the evaluation results of two versions, use `compare`. It does not call any model. For each metric, it applies an exact McNemar test (two-sided, 5% significance level) to the cases whose pass/fail result changed, and reports whether the difference is within random variation.
+
+```powershell
+dotnet run --project eval\UpdatesCowork.EvalRunner -- compare `
+  --baseline eval\out\core-v11 --candidate eval\out\core --out eval\out\compare
+```
+
+The exit codes are 0 for no significant regression, 1 for a significant regression, and 2 for a pair that cannot be compared. A pair cannot be compared when the dataset, fixtures, judge model, response source, or judge input format differ. In GitHub Actions, the evaluation workflow runs the same comparison when you set the `baseline_run_id` input to an earlier run ID.
+
 <details>
 <summary>Results on 30 fixed cases (2026-11-13)</summary>
 
@@ -185,7 +194,7 @@ Before publication, review the update site's and data API's terms and establish 
 
 The learning guide is built from the Markdown files in `site/` using Jekyll and published to GitHub Pages through GitHub Actions. Before the first publication, set the repository's **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. The published URL is `https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/`.
 
-The guide is written in Japanese and has nine chapters: architecture, build (Agent Framework implementation), host (Hosted Agent), web integration, observe (tracing and monitoring), measure (automated quality evaluation), fix (improvement), keep improving (automating the improvement loop), and adoption. It includes source excerpts with links to the original files, local run examples, expected results, and Foundry portal screenshots. Deployment and paid evaluation runs require their own prerequisites, and unverified items such as GitHub Actions OIDC are kept separate from verified results. The preview features covered in chapter 8, such as continuous evaluation and the agent optimizer, are not enabled in this repository.
+The guide is written in Japanese and has nine chapters: architecture, build (Agent Framework implementation), host (Hosted Agent), web integration, observe (tracing and monitoring), measure (automated quality evaluation), fix (improvement), keep improving (the continuous improvement loop), and adoption. It includes source excerpts with links to the original files, local run examples, expected results, and Foundry portal screenshots. Deployment and paid evaluation runs require their own prerequisites, and unverified items such as GitHub Actions OIDC are kept separate from verified results. Chapter 8 follows the four continuous improvement steps announced at Ignite 2026 (establish, identify, optimize, and validate and repeat) and covers what this repository implements: end-user feedback recorded as trace annotations, a low-rating alert, and statistical comparison of versions. The Foundry features covered in the same chapter, such as Insights, continuous evaluation, and the agent optimizer, are not enabled in this repository.
 
 ## License
 

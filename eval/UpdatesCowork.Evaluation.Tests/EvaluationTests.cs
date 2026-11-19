@@ -362,4 +362,98 @@ public sealed class EvaluationTests
             """);
         Assert.Equal(expected, EvaluationReport.Score(test, item.RootElement, "unused").Checks["citation"]);
     }
+
+    [Theory]
+    [InlineData(0, 0, 1.0)]
+    [InlineData(5, 0, 0.0625)]
+    [InlineData(6, 0, 0.03125)]
+    [InlineData(6, 1, 0.125)]
+    [InlineData(1, 6, 0.125)]
+    [InlineData(9, 0, 0.00390625)]
+    public void McNemarUsesOnlyDiscordantCasesWithAnExactTwoSidedTest(int improved, int worsened, double expected) =>
+        Assert.Equal(expected, EvaluationComparer.McNemarExactPValue(improved, worsened), 10);
+
+    [Fact]
+    public void McNemarDoesNotUnderflowForLargeDatasets()
+    {
+        var p = EvaluationComparer.McNemarExactPValue(600, 400);
+        Assert.InRange(p, double.Epsilon, 1e-6);
+        Assert.Equal(1.0, EvaluationComparer.McNemarExactPValue(500, 500), 10);
+    }
+
+    [Fact]
+    public void WilsonIntervalStaysInsideZeroAndOne()
+    {
+        var (low, high) = EvaluationComparer.WilsonInterval(30, 30);
+        Assert.Equal(1.0, high);
+        Assert.InRange(low!.Value, 0.88, 0.89);
+        (low, high) = EvaluationComparer.WilsonInterval(0, 30);
+        Assert.Equal(0.0, low);
+        Assert.InRange(high!.Value, 0.11, 0.12);
+        Assert.Equal((null, null), EvaluationComparer.WilsonInterval(0, 0));
+    }
+
+    [Fact]
+    public void CompareCountsPairedFlipsAndExcludesNotApplicableCases()
+    {
+        // 基準版は c1〜c7 のうち c1 だけ合格。候補版は c1 を落とし c2〜c7 に合格(改善 6 / 悪化 1)。c8 は候補版で対象外。
+        var ids = Enumerable.Range(1, 8).Select(index => $"c{index}").ToArray();
+        var baseline = Summary(ids, id => id is "c1" or "c8");
+        var candidate = Summary(ids, id => id == "c8" ? null : id != "c1");
+        var comparison = EvaluationComparer.Compare(baseline, Metadata("1"), candidate, Metadata("2"));
+        Assert.True(comparison.Comparable);
+        Assert.Equal("updates-cowork-eval:1", comparison.Baseline);
+        var metric = Assert.Single(comparison.Metrics);
+        Assert.Equal(7, metric.PairedCases);
+        Assert.Equal(["c2", "c3", "c4", "c5", "c6", "c7"], metric.Improved);
+        Assert.Equal(["c1"], metric.Worsened);
+        Assert.Equal(0.125, metric.PValue, 10);
+        Assert.Equal(ComparisonVerdicts.NotSignificant, metric.Verdict);
+        Assert.False(comparison.Regressed);
+        var markdown = EvaluationComparer.ToMarkdown(comparison);
+        Assert.Contains("偶然の範囲", markdown, StringComparison.Ordinal);
+        Assert.Contains("- task_adherence: 改善 c2, c3, c4, c5, c6, c7、悪化 c1", markdown, StringComparison.Ordinal);
+        Assert.Contains("、95%区間 ", markdown, StringComparison.Ordinal);
+        Assert.DoesNotContain(" %", markdown, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CompareFlagsSignificantRegressionsAndMismatchedRunConditions()
+    {
+        var ids = Enumerable.Range(1, 6).Select(index => $"c{index}").ToArray();
+        var baseline = Summary(ids, _ => true);
+        var candidate = Summary(ids, _ => false);
+        var regressed = EvaluationComparer.Compare(baseline, Metadata("1"), candidate, Metadata("2"));
+        Assert.True(regressed.Comparable);
+        Assert.True(regressed.Regressed);
+        Assert.Equal(ComparisonVerdicts.Regressed, Assert.Single(regressed.Metrics).Verdict);
+
+        var otherJudge = Metadata("2");
+        otherJudge["judge"] = "other-judge";
+        var mismatched = EvaluationComparer.Compare(baseline, Metadata("1"), Summary(ids, _ => true), otherJudge);
+        Assert.False(mismatched.Comparable);
+        Assert.Contains(mismatched.Warnings, warning => warning.StartsWith("judge が異なります", StringComparison.Ordinal));
+        Assert.False(EvaluationComparer.Compare(baseline, null, candidate, Metadata("2")).Comparable);
+        Assert.False(EvaluationComparer.Compare(baseline, Metadata("1"), Summary(ids[..5], _ => true), Metadata("2")).Comparable);
+    }
+
+    private static EvaluationSummary Summary(string[] ids, Func<string, bool?> passed)
+    {
+        var cases = ids.Select(id => new CaseScore(id, new Dictionary<string, bool?> { ["task_adherence"] = passed(id) }, [])).ToArray();
+        var total = cases.Count(score => score.Checks["task_adherence"] is not null);
+        var count = cases.Count(score => score.Checks["task_adherence"] == true);
+        return new EvaluationSummary(true, ids.Length, ids.Length, null, "completed", null,
+            [new MetricScore("task_adherence", count, total, total > 0 ? (double)count / total : null, .8, true, ids.Length - total)], cases);
+    }
+
+    private static System.Text.Json.Nodes.JsonObject Metadata(string version) => new()
+    {
+        ["dataset_sha256"] = "dataset",
+        ["fixtures_sha256"] = "fixtures",
+        ["judge"] = "judge",
+        ["response_source"] = "recorded_hosted_response",
+        ["task_query_format"] = "system_with_developer_context_v1",
+        ["agent_name"] = "updates-cowork-eval",
+        ["agent_version"] = version,
+    };
 }

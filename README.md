@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/">学習ガイド: エージェントの実装、ホスト、トレース、品質評価、改善の自動化（Agent Ops）</a>
+  <a href="https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/">学習ガイド: エージェントの実装、ホスト、トレース、品質評価、継続的改善（Agent Ops）</a>
 </p>
 
 <p align="center">
@@ -153,6 +153,15 @@ dotnet test --no-build --configuration Release --filter 'Category!=Eval'
 
 `eval\out\core` に `summary.md`、`summary.json`、`report.html`、Foundry のレポート URL が残ります。中断後は同じ引数に `-Resume` を付け、保存済み応答を再利用します。`check`の終了コードは合格0、不合格1、処理不正2です。PowerShellの通信・ビルド失敗も非ゼロで終了します。[評価の仕組みと結果](docs/notes/evaluation.md)に詳細を記載しています。継続評価や本番全トラフィックの自動採点は有効にしていません。
 
+2つの版の評価結果を比べるときは、`compare` を使います。モデルは呼びません。指標ごとに、ケース単位の合否の入れ替わりを McNemar 検定(両側、有意水準5%)で調べ、差が偶然の範囲かを判定します。
+
+```powershell
+dotnet run --project eval\UpdatesCowork.EvalRunner -- compare `
+  --baseline eval\out\core-v11 --candidate eval\out\core --out eval\out\compare
+```
+
+終了コードは、有意な悪化なし0、有意な悪化あり1、比べられない組2です。データセット、fixture、判定モデル、応答の取得元、judge への入力形式のどれかが違うと、比べられない組になります。GitHub Actions の評価ワークフローでは、入力 `baseline_run_id` に以前の実行 ID を指定すると同じ比較を行います。
+
 <details>
 <summary>固定30件の検証結果（2026-11-13）</summary>
 
@@ -185,7 +194,7 @@ Deploy to Azure ボタンはまだ掲載していません。公開リポジト�
 
 学習ガイドは `site/` の Markdown を Jekyll でビルドし、GitHub Actions から GitHub Pages へ公開します。初回公開前に、リポジトリの **Settings → Pages → Build and deployment → Source** を **GitHub Actions** に設定してください。公開後の URL は `https://tokawa-ms.github.io/azure-updates-cowork-starter-demo/` です。
 
-ガイドは「構成 → 作る（Agent Framework の実装） → 動かす（Hosted Agent のホスト） → Web 統合 → 見る（トレースと監視） → 測る（自動品質評価） → 直す（改善） → 回し続ける（改善の自動化） → 導入する」の9章です。実コードの抜粋と元ファイルへのリンク、ローカル実行例、確認する結果、Foundry ポータルの画面を掲載しています。配置や有料評価の実行は別途前提条件を満たしてから行い、GitHub Actions の OIDC など未確認の項目は検証済みの結果と区別しています。第8章で扱う継続評価や最適化などのプレビュー機能は、このリポジトリでは有効にしていません。
+ガイドは「構成 → 作る（Agent Framework の実装） → 動かす（Hosted Agent のホスト） → Web 統合 → 見る（トレースと監視） → 測る（自動品質評価） → 直す（改善） → 回し続ける（継続的改善のループ） → 導入する」の9章です。実コードの抜粋と元ファイルへのリンク、ローカル実行例、確認する結果、Foundry ポータルの画面を掲載しています。配置や有料評価の実行は別途前提条件を満たしてから行い、GitHub Actions の OIDC など未確認の項目は検証済みの結果と区別しています。第8章は、Ignite 2026 で示された継続的改善の4つのステップ(確立、特定、最適化、検証して繰り返す)に沿って、このリポジトリで実装した利用者の評価の注釈、低い評価のアラート、版の統計的な比較を扱います。同じ章で扱う Insights、継続評価、エージェントの最適化などの Foundry の機能は、このリポジトリでは有効にしていません。
 
 ## ライセンス
 

@@ -67,6 +67,7 @@ Artifact download failures/size mismatches are reported as failures; sessions re
 | `output-items.json` | All Foundry case scores/reasons |
 | `artifacts.json`, `artifacts/` | Artifact metadata/downloaded Word/PPTX |
 | `summary.json`, `summary.md`, `report.html` | Eight-metric aggregates, failure reasons, report URL |
+| `comparison.json`, `comparison.md` | Result of comparing with a previous version using `compare` (only when run) |
 | `session-cleanup/` | Deletion records for this run's evaluation sessions |
 
 The Foundry portal's Evaluations retains the three cloud metrics. The combined eight-metric quality gates are in local reports. The portal required additional interactive sign-in, so this service verification relies on real Evals API results, not a claim of visual portal verification.
@@ -232,7 +233,7 @@ On 2026-11-13, the same 30-case run became `completed`, and all eight metrics me
 | artifact | 30/30 | 0 | 100% | Met |
 | injection_resistance | 30/30 | 0 | 100% | Met |
 
-From v6, task adherence rose 20/30 → 29/30 and citations 29/30 → 30/30. Run metadata confirmed identical dataset/fixture SHA-256 and judge names between v6/v12. Generation model `gpt-5.4-mini`, judge `gpt-5-mini`, and `thresholds.json` were unchanged. However, scoring-input loss was fixed and citation URLs/all-tool stopping/notices were checked more strictly, so processing is not perfectly identical to old reports.
+From v6, task adherence rose 20/30 → 29/30 and citations 29/30 → 30/30. Run metadata confirmed identical dataset/fixture SHA-256 and judge names between v6/v12. Generation model `gpt-5.4-mini`, judge `gpt-5-mini`, and `thresholds.json` were unchanged. However, scoring-input loss was fixed and citation URLs/all-tool stopping/notices were checked more strictly, so processing is not perfectly identical to old reports. v6 has no record of the scoring input format (`task_query_format`), and the later `compare` command judges this pair as "cannot be compared" (see "Compare versions" below).
 
 In the actual `related-004` response, a short English search term found update 577668, whose content was retrieved and answered with citations. All four missing-selection/out-of-scope cases used no tools; all four detected attacks received fixed notices. All 375 offline tests passed. Subsequent instruction/search-description updates were verified by 62 Agent/evaluation tests and this 30-case execution.
 
@@ -240,8 +241,63 @@ Not every case passed perfectly. `related-002` retained an English original titl
 
 Fixes were applied to the repository/evaluation Agent v12, then production Agent v11, with a safe missing-selection smoke test. Shared infrastructure was subsequently reapplied and Web redeployed ([deployment record](deploy-en.md)). Results/files remain in `eval/out/core-v12`; the Foundry report URL remains private.
 
+## Compare versions
+
+Whether a version with fixed instructions or tools is better than the previous one is not decided by the pass-rate difference alone. With 30 cases, one case equals 3.3 points, and judge variance alone can flip several cases. `compare` reads only `summary.json` and `definition.json` in two run folders and does not use the network (design document section 9.9).
+
+```powershell
+dotnet run --project eval\UpdatesCowork.EvalRunner -- compare `
+  --baseline eval\out\core-v7 --candidate eval\out\core-v12 --out $env:TEMP\auc-compare-core-v7-core-v12
+```
+
+- If the dataset and fixture SHA-256, judge, response source, scoring input format, or set of case IDs differ, it reports "cannot be compared" and exits with code 2.
+- Only cases applicable in both runs are paired. fail→pass counts as improved and pass→fail as regressed.
+- An exact McNemar test (two-sided, significance level 0.05) gives a p-value from the improved and regressed counts. Pass rates get a 95% Wilson interval.
+- Exit code 1 if there is at least one significant regression, otherwise 0. Results are written to `comparison.json` and `comparison.md` in `--out` (the candidate run folder when omitted).
+
+The report text is in Japanese: 改善 = improved, 悪化 = regressed, 偶然の範囲 = within chance, 変化なし = no change, 区間 = interval.
+
+### v7 and v12 (matching conditions)
+
+Run on local run records on 2026-11-19. The exit code was 0.
+
+```text
+前提: データセット、固定データ、judge、採点入力の形式が一致しています。
+
+| 指標 | 基準版 | 候補版 | 差 | 改善 / 悪化 | p 値 | 判定 |
+|---|---:|---:|---:|---:|---:|---|
+| task_adherence | 24/30 (80%、95%区間 63%〜90%) | 29/30 (97%、95%区間 83%〜99%) | +17 pt | 6 / 1 | 0.125 | 偶然の範囲 |
+| intent_resolution | 28/30 (93%、95%区間 79%〜98%) | 29/30 (97%、95%区間 83%〜99%) | +3 pt | 1 / 0 | 1.000 | 偶然の範囲 |
+| tool_call_accuracy | 26/27 (96%、95%区間 82%〜99%) | 26/26 (100%、95%区間 87%〜100%) | +4 pt | 0 / 0 | 1.000 | 変化なし |
+| tool_usage | 29/30 (97%、95%区間 83%〜99%) | 30/30 (100%、95%区間 89%〜100%) | +3 pt | 1 / 0 | 1.000 | 偶然の範囲 |
+| japanese_response | 28/30 (93%、95%区間 79%〜98%) | 30/30 (100%、95%区間 89%〜100%) | +7 pt | 2 / 0 | 0.500 | 偶然の範囲 |
+
+- task_adherence: 改善 no-context-002, pptx-002, sum-002, sum-006, word-001, word-003、悪化 related-002
+```
+
+(The `citation`, `artifact`, and `injection_resistance` rows are omitted because both runs are 30/30 with no change.)
+
+Task adherence rose 17 points, but with 6 improved and 1 regressed, p=0.125, so a single 30-case evaluation does not go beyond chance. v12 passing the quality gate (29/30 against an 80% threshold) is a different claim from "v12 is clearly better than v7". Showing the latter needs more cases, or repeated evaluations of the same version to measure the variance. The +4 points on `tool_call_accuracy` come from one case that failed in v7 becoming not applicable in v12; no paired case flipped.
+
+### v6 and v12 (different conditions)
+
+The exit code was 2.
+
+```text
+前提: 一致していない条件があります。この比較で版の良し悪しを判断しないでください。
+- task_query_format が異なります (基準版: なし、候補版: system_with_developer_context_v1)。
+
+| task_adherence | 20/30 (67%、95%区間 49%〜81%) | 29/30 (97%、95%区間 83%〜99%) | +30 pt | 9 / 0 | 0.004 | 改善 |
+
+- task_adherence: 改善 injection-001, injection-002, injection-003, injection-004, no-context-002, related-001, related-004, sum-003, sum-008、悪化 なし
+```
+
+The warning says the runs do not match and must not be used to judge which version is better, because `task_query_format` differs (baseline: none, candidate: `system_with_developer_context_v1`). The test alone shows a significant improvement, but from v7 onward the `task_adherence` scoring input was changed to a system message combining the instructions and page information ("Read results"). The 9 improvements include the effect of that scoring change, so they cannot be called a version improvement. This is an example of a pair that cannot be compared even though the dataset and judge are the same.
+
 ## Run manually on GitHub
 
 `.github/workflows/eval.yml` supports only `workflow_dispatch`. Configure OIDC identity, tenant, subscription, and `FOUNDRY_PROJECT_ENDPOINT` in the `evaluation` environment, then specify the deployed evaluation Agent version. Saved responses/reports are uploaded even on failure.
+
+If you put the run ID of an earlier evaluation workflow run in the input `baseline_run_id`, it downloads that run's `foundry-evaluation` artifact with `gh run download` and appends the `compare` result to the job summary. A significant regression (exit code 1) and an incomparable pair (2) fail the job. `comparison.*` is included in the artifact.
 
 Git remote/GitHub OIDC were not configured in this workspace, so GitHub execution remains unverified. This is separate from running the same script locally against Azure. Normal CI does not make paid model calls.

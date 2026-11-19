@@ -106,6 +106,10 @@ else if (deck?.Slides is { } slides && slides.Count + 2 != totalSlides)
   <p>v6 と v12 の間で評価入力の欠落修正やローカル検査の強化も行ったため、完全に同じ採点処理の前後比較ではありません。指標の改善を Agent の変更だけに帰属させないでください。v12 は固定 30 件での一回の合格であり、未見データや反復実行での安定性は保証しません。</p>
 </aside>
 
+この限界は、EvalRunner の `compare` コマンドで確かめられます。v6 と v12 の結果を渡すと、judge への入力形式（`task_query_format`）が違うため「比べられない」と判定し、終了コード 2 で止まります。同じ入力形式の v7 と v12 を比べると、指示遵守は 24/30 から 29/30 に上がりましたが、改善 6 件と悪化 1 件の p 値は 0.125 で、偶然の範囲と判定されます。品質ゲートに通ったことと、前の版より確かによくなったことは、別に確かめます。手順は第 8 章の「検証して繰り返す」で扱います。
+
+<a class="text-link" href="{{ '/automation/' | relative_url }}#validate">第 8 章: 版の差が偶然の範囲かを確かめる <span aria-hidden="true">→</span></a>
+
 <a class="text-link" href="https://github.com/tokawa-ms/azure-updates-cowork-starter-demo/blob/main/docs/notes/evaluation.md">v6 から v12 の失敗分析・評価履歴を読む <span aria-hidden="true">↗</span></a>
 
 </div>
@@ -140,7 +144,7 @@ else if (deck?.Slides is { } slides && slides.Count + 2 != totalSlides)
   <article class="muted-panel"><p class="eyebrow">別途設計が必要</p><h3>本番トラフィックの継続評価</h3><ul><li>ユーザー入力・応答の記録と同意</li><li>本文の保護、閲覧権限、保持期間</li><li>採点頻度、judge の費用、誤判定対応</li><li>運用担当と品質ゲートの変更承認</li></ul></article>
 </div>
 
-このリポジトリでは継続評価ルールを作成・有効化していません。アプリ側で Agent の本文記録を無効にしても、Foundry 基盤が記録する内容まで無効になるとは限りません。実環境で確認した保存範囲と組織ポリシーを先に照合してください。本番トラフィックの採点と、改善の自動化の設計は第 8 章で扱います。
+このリポジトリでは継続評価ルールを作成・有効化していません。アプリ側で Agent の本文記録を無効にしても、Foundry 基盤が記録する内容まで無効になるとは限りません。実環境で確認した保存範囲と組織ポリシーを先に照合してください。本番トラフィックの採点と、利用者の評価を評価データに戻す継続的改善のループは第 8 章で扱います。
 
 </div>
 </section>
@@ -164,5 +168,5 @@ else if (deck?.Slides is { } slides && slides.Count + 2 != totalSlides)
 
 <nav class="lesson-next" aria-label="章の移動">
   <a href="{{ '/evaluation/' | relative_url }}"><small>前の章 / 06</small><span>測る: 品質評価を自動化する</span></a>
-  <a class="next-link" href="{{ '/automation/' | relative_url }}"><small>次の章 / 08</small><span>回し続ける: 改善を自動化する <b aria-hidden="true">→</b></span></a>
+  <a class="next-link" href="{{ '/automation/' | relative_url }}"><small>次の章 / 08</small><span>回し続ける: 継続的改善のループ <b aria-hidden="true">→</b></span></a>
 </nav>

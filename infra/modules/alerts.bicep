@@ -64,6 +64,46 @@ dependencies
   }
 }
 
+// 24 時間で利用者の評価が 10 件以上あり、「役に立たなかった」が 30% を超えたとき(継続的改善の起点)
+resource feedbackBadRate 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+  name: 'alert-feedback-bad-rate-${environmentName}'
+  location: location
+  tags: tags
+  properties: {
+    displayName: 'Azure Updates Cowork: 低い評価の割合'
+    description: '24 時間で利用者の評価が 10 件以上あり、低い評価が 30% を超えました。応答 ID からトレースを開き、評価データセットに足す候補を探してください。'
+    severity: 3
+    enabled: true
+    scopes: [appInsightsId]
+    evaluationFrequency: 'PT1H'
+    windowSize: 'P1D'
+    criteria: {
+      allOf: [
+        {
+          query: '''
+traces
+| where message has "auc.feedback"
+| extend rating = tostring(customDimensions["auc.feedback.rating"])
+| summarize total = count(), bad = countif(rating == "bad")
+| extend badRate = iff(total == 0, 0.0, todouble(bad) / total)
+| where total >= 10 and badRate > 0.3
+'''
+          timeAggregation: 'Count'
+          operator: 'GreaterThan'
+          threshold: 0
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [actionGroup.id]
+    }
+  }
+}
+
 // 15 分間で chat.turn の 95 パーセンタイルが 120 秒を超えたとき
 resource chatTurnLatency 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
   name: 'alert-chat-latency-${environmentName}'

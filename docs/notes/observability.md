@@ -67,6 +67,42 @@ union requests, dependencies
 
 Q4はW3Cのトレース連携を実データで確認済みです。Q5の`x-client-trace-id`代替ヘッダー単独での伝播は未確認であり、Q4の成功をその証拠にはしません。応答IDと会話IDによる関連付けも維持しています。
 
+## 利用者の評価を元のトレースに付ける
+
+チャットの「役に立った」「役に立たなかった」は、評価した応答の`chat.turn`の子`feedback.record`の中で、`auc.feedback`のログと、Foundryのトレース注釈(プレビュー)と同じ形の`gen_ai.evaluation.result`のログとして記録します(設計書8.6節)。評価の要求は別のHTTP要求ですが、ログは元の会話のトレースに並びます。
+
+2026-11-19に、偽のAgent(`--launch-profile fake-agent`)とAspire Dashboardで確かめました。チャットを1回送り、その応答に「役に立たなかった」とコメント「出典のURLがない」を送りました。
+
+```powershell
+docker compose -f tools/otel/compose.yaml up -d
+dotnet run --project src/UpdatesCowork.Web --launch-profile fake-agent
+```
+
+チャットのSSEの`meta`イベントで受け取ったtrace IDです。
+
+```text
+event: meta
+data: {"threadId":"th_01M7SMWGBD8T29K5FCZH9YY9J5","responseId":"resp_fake_word_0001","traceId":"1dfad41fb91aab6af968a56ad29280fa",...}
+```
+
+評価を送った後、Dashboardでこのtrace IDを開くと、`POST /api/chat`のトレースの最後に`feedback.record`があり、ログが2件付いていました。2件目の属性は次のとおりです。
+
+| 名前 | 値 |
+|---|---|
+| `microsoft.custom_event.name` | `gen_ai.evaluation.result` |
+| `gen_ai.evaluation.name` | `task_completion` |
+| `gen_ai.evaluation.score.value` | `0` |
+| `gen_ai.evaluation.score.label` | `fail` |
+| `gen_ai.response.id` | `resp_fake_word_0001` |
+| `microsoft.gen_ai.human_evaluation.source` | `end_user` |
+| `microsoft.gen_ai.evaluation.actor.type` | `human` |
+| `gen_ai.evaluation.explanation` | `出典のURLがない` |
+| TraceId | `1dfad41fb91aab6af968a56ad29280fa` |
+
+コンソールのログでは、2件とも`ParentId`が`chat.turn`のスパンID`6a1f8decd0db8b38`でした。前の応答IDの方式(ローカルの既定)では会話IDがないため、`gen_ai.conversation.id`は注釈に入りません。
+
+Azureでは、`gen_ai.evaluation.result`はApplication Insightsの`customEvents`に、`auc.feedback`は`traces`に入る想定です。`customEvents`への到着と、Foundryポータルのトレースに注釈として表示されるかは、デプロイ後に確かめる項目(Q16)で、まだ確かめていません。確かめるときは設計書付録DのKQLを使います。
+
 ## 本文の記録範囲と注意
 
 | 発生元 | 設定・実測 |

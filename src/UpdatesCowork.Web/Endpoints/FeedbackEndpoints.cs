@@ -1,7 +1,9 @@
 using System.Text;
+using Microsoft.Extensions.Options;
 using UpdatesCowork.Shared;
 using UpdatesCowork.Shared.Contracts;
 using UpdatesCowork.Shared.Telemetry;
+using UpdatesCowork.Web.Configuration;
 using UpdatesCowork.Web.Identity;
 using UpdatesCowork.Web.Registry;
 using UpdatesCowork.Web.Telemetry;
@@ -27,6 +29,7 @@ internal static class FeedbackEndpoints
         IChatRegistry registry,
         WebTelemetry telemetry,
         ILoggerFactory loggerFactory,
+        IOptions<WebOptions> webOptions,
         CancellationToken ct)
     {
         if (UserKeys.Get(context) is not { } userKey)
@@ -57,6 +60,7 @@ internal static class FeedbackEndpoints
 
         var comment = SanitizeComment(request.Comment);
         var logger = loggerFactory.CreateLogger(LoggerCategory);
+        var trace = webOptions.Value.Features.FeedbackAnnotations ? thread.FindResponseTrace(request.ResponseId) : null;
         List<KeyValuePair<string, object?>> state =
         [
             new(TelemetryNames.Attributes.ResponseId, request.ResponseId),
@@ -64,11 +68,25 @@ internal static class FeedbackEndpoints
             new(TelemetryNames.Attributes.ThreadId, thread.ThreadId),
             new(TelemetryNames.Attributes.FeedbackRating, request.Rating),
             new(TelemetryNames.Attributes.FeedbackComment, comment),
+            new(TelemetryNames.Attributes.FeedbackTraceLinked, trace is not null),
             new("{OriginalFormat}", TelemetryNames.FeedbackLogMessage),
         ];
 
         // メッセージは固定の auc.feedback にし、値は属性として送る(KQL で customDimensions から引ける)。
-        logger.Log(LogLevel.Information, new EventId(1001, "Feedback"), state, null, static (_, _) => TelemetryNames.FeedbackLogMessage);
+        void Record()
+        {
+            logger.Log(LogLevel.Information, new EventId(1001, "Feedback"), state, null, static (_, _) => TelemetryNames.FeedbackLogMessage);
+            if (trace is not null)
+            {
+                FeedbackAnnotation.Log(logger, request.Rating!, comment, request.ResponseId, thread.ConversationId);
+            }
+        }
+
+        // 応答のトレースが分かるときは、元の会話のトレースの中で記録する。分からなければ注釈は送らない
+        // (評価要求のトレースに注釈を付けると、Foundry では別の会話の評価に見えてしまうため)。
+        if (trace is not null) FeedbackAnnotation.RecordInTrace(trace, Record);
+        else Record();
+
         telemetry.RecordFeedback(request.Rating!);
         return TypedResults.NoContent();
     }

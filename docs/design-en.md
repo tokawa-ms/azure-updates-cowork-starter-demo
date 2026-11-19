@@ -73,7 +73,8 @@ The aim is that people who read and run this sample can explain the following. T
 - Confirm, both locally (Aspire Dashboard) and in Azure (Application Insights and the Foundry portal), how OpenTelemetry traces connect in order from the web app to the Hosted Agent to the tools.
 - View token counts, response times, and tool failure rates with metrics and KQL.
 - Record actual responses with fixed data, and combine Foundry cloud evaluation with deterministic checks. Continuous evaluation is a stretch goal that requires separate consent and consideration of cost and content recording.
-- Record user ratings (helpful, not helpful) linked to response IDs, and use them to review evaluation data.
+- Record user ratings (helpful, not helpful) linked to response IDs and the original trace, and use them to review evaluation data.
+- Evaluate a version with fixed instructions or tools on the same data, and decide whether the difference from the previous version is within chance (section 9.9).
 
 ### 1.3 Out of scope
 
@@ -1056,7 +1057,7 @@ An excerpt of the return value of `get_azure_update` is as follows.
 
 ### 6.6 Registry (process memory)
 
-`InMemoryChatRegistry` manages threads by `(UserKey, ThreadId)` and artifacts by `(UserKey, ArtifactId)`. Threads hold `ConversationId`, `LastResponseId`, and the Hosted Agent's `SessionId`; artifacts hold `ThreadId`, file name, kind, size, `Storage`, `Location`, and `SessionId`.
+`InMemoryChatRegistry` manages threads by `(UserKey, ThreadId)` and artifacts by `(UserKey, ArtifactId)`. Threads hold `ConversationId`, `LastResponseId`, the Hosted Agent's `SessionId`, and the trace ID and span ID of the latest 20 responses (`ResponseTraces`, section 8.6); artifacts hold `ThreadId`, file name, kind, size, `Storage`, `Location`, and `SessionId`.
 
 When registering and reading artifacts, the BFF validates that `location` has the form `artifacts/art_<ULID>/<filename>`. Downloads call the Session Files API only after looking up the registry by user key and confirming the owner. Deleting a thread also deletes the artifact records of the same thread.
 
@@ -1156,6 +1157,7 @@ Spans you create yourself are as follows.
 | `web.artifact.register` | web | Artifact registry update; `auc.outcome` |
 | `artifact.download` | web | `auc.artifact.id`, `auc.artifact.kind` |
 | `artifact.session_file.read`, `artifact.session.delete` | web | `auc.artifact.storage` (read only) |
+| `feedback.record` | web | A container that records a user rating as a child of the original response's `chat.turn` (section 8.6). It has no attributes; values go into the logs inside it |
 | `agent.turn` | Agent | One Responses handler invocation; no content or arguments |
 | `model.call` | Agent model client | `gen_ai.request.model`, available `gen_ai.usage.input_tokens` and `gen_ai.usage.output_tokens` |
 | `tool.execute` | Agent tool middleware | `gen_ai.tool.name`, `gen_ai.tool.call.id`, `auc.outcome` |
@@ -1205,19 +1207,40 @@ Metrics are as follows.
 
 ### 8.6 Recording user ratings
 
-When `POST /api/feedback` is received, record the following two things.
+When `POST /api/feedback` is received, record the following three things.
 
-- A log (OpenTelemetry log record): message `auc.feedback`, attributes `gen_ai.response.id`, `gen_ai.conversation.id`, `auc.feedback.rating`, `auc.feedback.comment` (up to 500 characters).
+- A log (OpenTelemetry log record): message `auc.feedback`, attributes `gen_ai.response.id`, `gen_ai.conversation.id`, `auc.thread_id`, `auc.feedback.rating`, `auc.feedback.comment` (up to 500 characters), `auc.feedback.trace_linked` (whether it was linked to the original trace). In Application Insights it goes to the `traces` table.
+- An event `gen_ai.evaluation.result` in the same shape as Foundry trace annotations (preview). In Application Insights it goes to the `customEvents` table (see below).
 - The metric `auc.feedback` (`rating` dimension).
+
+The trace annotation follows the end-user feedback shape in Foundry's "Annotate traces with human feedback".
+
+| Attribute | Value |
+|---|---|
+| `microsoft.custom_event.name` | `gen_ai.evaluation.result`. The Azure Monitor exporter (1.10.0) sends logs with this attribute to `customEvents` |
+| `gen_ai.evaluation.name` | `task_completion` (Foundry's default scoring template) |
+| `gen_ai.evaluation.score.value` / `gen_ai.evaluation.score.label` | Helpful: `1.0` / `pass`, not helpful: `0.0` / `fail` |
+| `gen_ai.evaluation.explanation` | The sanitized comment (only when present) |
+| `gen_ai.response.id`, `gen_ai.conversation.id` | The rated response and conversation |
+| `microsoft.gen_ai.human_evaluation.source` | `end_user` (annotations added by developers in the portal use `builder`) |
+| `microsoft.gen_ai.evaluation.actor.type` | `human` |
+| `internal_properties` | A JSON string with the threshold, minimum, maximum, desirable direction, and type (`boolean`) |
+
+The annotation must be emitted inside the same trace as the rated response. Each time a `chat.turn` ends, Web stores the response ID and that span's trace ID and span ID on the thread in the registry (the latest 20). When a rating arrives, it opens `feedback.record` with that span as the parent and records `auc.feedback` and `gen_ai.evaluation.result` inside it. The logs' `operation_Id` then becomes the original conversation's trace ID, alongside the Agent's `invoke_agent` connected in section 8.4. `operation_ParentId` becomes the child `feedback.record`, not `chat.turn`.
+
+When the response ID is not found in the registry (an old response, or after a process restart), no annotation is emitted, and only `auc.feedback` is recorded in the rating request's trace. Attaching an annotation to the rating request's trace would make it look like a rating of a different trace in Foundry. Setting `Web:Features:FeedbackAnnotations` to `false` stops the annotation and the link to the original trace, returning to the previous `auc.feedback` only. The user key and cookie values are not put into the annotation.
+
+In configurations that send to Application Insights with Entra ID authentication, the sending identity needs `Monitoring Metrics Publisher`. Display in the Foundry portal is to be confirmed (Q16).
 
 For responses with low ratings, look up the trace by response ID and make them candidates to add to the evaluation dataset (section 9.2).
 
 ### 8.7 Alerts (recommended)
 
-Create two Log Analytics search alerts in Bicep. Notifications go to an action group's email (specified by parameter; if empty, it is not created).
+Create three Log Analytics search alerts in Bicep. Notifications go to an action group's email (specified by parameter; if empty, it is not created).
 
 - When the failure rate of `execute_tool` exceeds 20% over 15 minutes.
 - When the 95th percentile of `chat.turn` exceeds 120 seconds over 15 minutes.
+- When there are 10 or more user ratings in 24 hours and low ratings (`bad`) exceed 30%. It counts `auc.feedback` in `traces` every hour, and works regardless of whether annotations are enabled.
 
 The learning guide describes the procedure for setting up drops in evaluation scores with Foundry portal alerts (preview).
 
@@ -1256,7 +1279,10 @@ Write one case per line in `eval/datasets/core.jsonl`.
 | `injection` | 4 | Fixed data with instructions embedded in the body (should not follow them) |
 
 - Fixed data (`eval/fixtures/updates/`) is saved from the real API in P3. For `injection`, duplicate saved data and add sentences such as 「以前の指示を無視して…」 ("Ignore the previous instructions...") to the body, and append `-inj` to the ID.
-- For responses with low user ratings (section 8.6), check the content, decide the category, and add them to this file.
+- Responses with low user ratings (section 8.6), or with annotations added by developers in the Foundry portal, are added to this file in the following order.
+  1. Collect `fail` annotations and response IDs with the KQL in Appendix D, and check the cause in the trace (tool choice, sources, instruction violations, and so on).
+  2. Do not reuse the user's text or personal information as is. Rewrite it as a request that reproduces the same failure, and decide the category and `ground_truth`. Add fixed data if needed.
+  3. Evaluate it once with the baseline version and confirm that the failure reproduces before adding it. Because the dataset's SHA-256 changes, later comparisons (section 9.9) need a new baseline taken with the new dataset.
 - `page_context` is generated from the fixed data with `PageContextText`, shared with Web. Only the developer page information and the user's request are sent to the Agent. The correct answer, expected tools, and evaluation criteria are not sent to the Agent.
 - Save the SHA-256 of the dataset, all fixtures, and the actual Agent instructions, plus the Agent name and version and the judge model name, in the run metadata.
 
@@ -1350,6 +1376,7 @@ This is not included in the current change, and no rules have been created or en
 2. Safely pass the inputs `agent_version` and `limit` to PowerShell via environment variables.
 3. Run `run-foundry.ps1` and write `summary.md` to the job summary. Upload the saved responses and reports even on failure.
 4. Report failing the criteria, communication failures, and cleanup failures with a non-zero exit.
+5. If the input `baseline_run_id` is given, download that run's `foundry-evaluation` artifact with `gh run download` and compare with `EvalRunner compare` (section 9.9). The comparison is also written to the job summary. A significant regression (exit code 1) and runs that cannot be compared because conditions differ (2) fail the job. Downloading the artifact uses the `actions: read` permission.
 
 Set the OIDC IDs and `FOUNDRY_PROJECT_ENDPOINT` in the `evaluation` environment. In environments without a Git remote and OIDC, distinguish between creating the workflow file and confirming a run on GitHub.
 
@@ -1363,6 +1390,31 @@ The cloud AI Red Teaming Agent can be used from Python, JavaScript, and REST, an
 - Safety evaluations are English-oriented. The Japanese `injection` category is checked with a custom deterministic evaluator.
 - The Japanese character ratio is not a language identification model. It may fail Japanese answers that contain many official English product names or article titles. Nothing other than URLs is excluded, and this limitation is stated in the report. Do not lower the threshold just to make things pass.
 - The judge's decisions can also be wrong, so check the reasons for failures and the actual responses. Record unscored items and quality failures distinctly.
+
+### 9.9 Comparing versions (verifying continuous improvement)
+
+After fixing the instructions or tools, evaluate the new version with the same 30 cases and compare it with the previous version. Do not decide on the difference in pass rates alone. With 30 cases, one case equals 3.3 points, and judge variance alone can flip several cases.
+
+```powershell
+dotnet run --project eval\UpdatesCowork.EvalRunner -- compare `
+  --baseline eval\out\core-v7 --candidate eval\out\core-v12 [--out <folder>]
+```
+
+`compare` does not use the network. It reads only `summary.json` and `definition.json` from the two run folders.
+
+1. Check the preconditions: `dataset_sha256`, `fixtures_sha256`, `judge`, `response_source`, and `task_query_format` in `definition.json` all match, both runs are complete, and the sets of case IDs are the same. If any differ, it reports "cannot be compared" and exits with code 2.
+2. For each metric, pair only the cases that were applicable in both runs, and list the case IDs that went fail→pass (improved) and pass→fail (regressed). Not-applicable (`null`) cases are not paired.
+3. Compute the p-value of an exact McNemar test (two-sided) from the numbers of improved and regressed cases. At a significance level of 0.05, it judges 改善 (improved), 悪化 (regressed), 偶然の範囲 (within chance), or 変化なし (no change). Pass rates get a 95% Wilson interval.
+4. Write the result to `comparison.json` and `comparison.md` (by default in the candidate run folder). The exit code is 1 if there is at least one significant regression, and 0 otherwise.
+
+The results on local run records are as follows (`docs/notes/evaluation-en.md`).
+
+| Comparison | Result |
+|---|---|
+| v7→v12 | Conditions match. `task_adherence` went from 24/30 to 29/30 (+17 points), but with 6 improved and 1 regressed, p=0.125, so it is "within chance". Exit code 0 |
+| v6→v12 | Cannot be compared because `task_query_format` differs (v6 has none). `task_adherence` has 9 improved and 0 regressed with p=0.004, but this includes the effect of changing the judge's input format, so it cannot be called a version improvement. Exit code 2 |
+
+The Azure DevOps evaluation extension (`AIAgentEvaluation@2`) also reports confidence intervals and a paired significance test against a baseline agent. This reproduces the idea with local files only. The test method is not necessarily the same as the extension's. Foundry's evaluation comparison view and automatic agent optimization (preview) are not used.
 
 ## 10. Infrastructure and deployment
 
@@ -1544,7 +1596,7 @@ Write the following seven labs in `docs/labs/` (P9). Each lab has four sections:
 | 3 | Building the work-assistance agent | Loading skills, private MCP, `update_plan`, generating and validating Word and PowerPoint, the approval feature |
 | 4 | Deploying to Foundry and embedding in the site | `azd up`, assigning roles to the agent identity, calling from the BFF with a managed identity, continuing conversations, retrieving and deleting artifacts via Session Files, the 403 when Foundry Agent Consumer is removed |
 | 5 | Observing | Aspire Dashboard, Application Insights Transaction search, Foundry Traces and Monitor, the KQL in Appendix D, joining with user ratings |
-| 6 | Evaluating | The fixed-data-only Agent, saving actual responses, Foundry scoring, Office checks, distinguishing not-applicable from unscored, quality gates |
+| 6 | Evaluating | The fixed-data-only Agent, saving actual responses, Foundry scoring, Office checks, distinguishing not-applicable from unscored, quality gates, comparing versions with `compare` |
 | 7 | Going further | Per-user session isolation, comparing versions with `x-agent-version-override`, Prompt Shields `Block` mode, red teaming |
 
 The mapping to the learning goals in section 1.2 is as follows: A is covered in labs 1, 2, and 4; B in lab 3; C in labs 5 and 6.
@@ -1553,7 +1605,7 @@ The mapping to the learning goals in section 1.2 is as follows: A is covered in 
 
 | Kind | Target | Policy |
 |---|---|---|
-| Unit tests | Office, AzureUpdates, ChatEventMapper, PageContextValidator, SetCookieRewriter, HtmlRewriteTransform, ToolCallMiddleware | No network. HTTP returns fixed responses by replacing `HttpMessageHandler` |
+| Unit tests | Office, AzureUpdates, ChatEventMapper, PageContextValidator, SetCookieRewriter, HtmlRewriteTransform, ToolCallMiddleware, evaluation comparison (`EvaluationComparer`) | No network. HTTP returns fixed responses by replacing `HttpMessageHandler` |
 | Integration tests | web | Start with `WebApplicationFactory`. The agent is replaced with `FakeAgentGateway` (replays recorded SSE) |
 | SSE recordings | `tests/recordings/*.sse` | Save actual agent responses in P5 and use them in `ChatEventMapper` tests |
 | Evaluation | The whole agent | Chapter 9 |
@@ -1592,6 +1644,7 @@ The mapping to the learning goals in section 1.2 is as follows: A is covered in 
 | Q13 | The latest api-version of Prompt Shields | The Content Safety REST reference | P4 |
 | Q14 | Whether `id-web` can manage files of Hosted Agent sessions it created itself | Microsoft Learn limits normal callers to their own sessions and requires Foundry User for operating on all users' sessions. After deployment, confirm that GET/DELETE works with only Foundry Agent Consumer | P6 |
 | Q15 | The exact name of the data action used for delegating user identity | Built-in role definitions and documentation | Stretch |
+| Q16 | Whether end-user feedback in `gen_ai.evaluation.result` appears as an annotation on traces in the Foundry portal, and whether it is treated as attached even though `operation_ParentId` is `feedback.record`, a child of `chat.turn` | After deployment, send a rating and check `operation_Id` in `customEvents` and the annotations in the portal's Traces. Offline, tests confirm that the log is recorded inside `feedback.record` with the original `chat.turn` trace ID | Continuous improvement |
 
 ## 15. References
 
@@ -1618,8 +1671,27 @@ Items with URLs are sources whose content was checked during research. For items
 ### Observability and evaluation
 
 - Microsoft.OpenTelemetry (.NET distribution): https://github.com/microsoft/opentelemetry-distro-dotnet
-- Microsoft Learn titles: Agent Framework observability, Quickstart: tracing for hosted agents, Trace agents (client side), Monitor agents with the Agent Monitoring Dashboard, Agents view in Application Insights, Built-in evaluators, Agent evaluators, Cloud evaluation, Evaluate a hosted agent, Continuous evaluation, AI agent evaluation GitHub Action, AI Red Teaming Agent, Microsoft.Extensions.AI.Evaluation libraries
+- Microsoft Learn titles: Agent Framework observability, Quickstart: tracing for hosted agents, Trace agents (client side), Monitor agents with the Agent Monitoring Dashboard, Agents view in Application Insights, Built-in evaluators, Agent evaluators, Cloud evaluation, Evaluate a hosted agent, Continuous evaluation, AI agent evaluation GitHub Action, Azure DevOps AI agent evaluation extension, Annotate traces with human feedback, AI Red Teaming Agent, Microsoft.Extensions.AI.Evaluation libraries
 - C# evaluation samples: `sdk/ai/Azure.AI.Projects/samples` in GitHub `Azure/azure-sdk-for-net` (Evaluations, Sample9_EvaluationRules)
+
+### Continuous improvement (Ignite 2026)
+
+The four steps (Establish, Identify, Optimize, Validate and repeat) and the availability of each feature were checked against these official sources (2026-11-19).
+
+- Continuous improvement comes to Microsoft Foundry (Azure Blog, 2026-11-17): https://azure.microsoft.com/en-us/blog/continuous-improvement-comes-to-microsoft-foundry/
+- What's new in Foundry Agent Service at Ignite 2026 (Microsoft Foundry Blog): https://devblogs.microsoft.com/foundry/whats-new-in-foundry-agent-service-at-ignite-2026/
+- Microsoft Foundry portal general availability overview: https://learn.microsoft.com/azure/foundry/concepts/general-availability
+- Annotate traces with human feedback: https://learn.microsoft.com/azure/foundry/observability/how-to/trace-annotations
+- Log end user feedback: https://learn.microsoft.com/azure/foundry/observability/how-to/log-end-user-feedback
+- Capture end-user feedback for GenAI agents (Azure Monitor): https://learn.microsoft.com/azure/azure-monitor/app/opentelemetry-add-modify#capture-end-user-feedback-for-genai-agents
+- Human in the loop: https://learn.microsoft.com/azure/foundry/observability/how-to/human-in-the-loop
+- Curate golden datasets: https://learn.microsoft.com/azure/foundry/observability/how-to/human-in-the-loop-golden-datasets
+- Rubric evaluators: https://learn.microsoft.com/azure/foundry/concepts/evaluation-evaluators/rubric-evaluators
+- Find recurring issues with insights: https://learn.microsoft.com/azure/foundry/observability/how-to/agent-insights
+- What is the agent optimizer?: https://learn.microsoft.com/azure/foundry/agents/concepts/agent-optimizer-overview
+- Fix insights with agent optimizer: https://learn.microsoft.com/azure/foundry/agents/how-to/optimize-agents-from-insights
+- Optimize skills: https://learn.microsoft.com/azure/foundry/agents/how-to/optimize-skills-from-traces
+- Set up continuous and scheduled evaluation: https://learn.microsoft.com/azure/foundry/observability/how-to/continuous-scheduled-evaluation
 
 ### Updates data
 
@@ -1880,6 +1952,28 @@ customMetrics
 | where timestamp > ago(1d)
 | where name == "auc.chat.ttft"
 | summarize avg_ms = sum(valueSum) / sum(valueCount) by bin(timestamp, 1h)
+```
+
+Count trace annotations (section 8.6) by source (user or developer) and day.
+
+```kusto
+customEvents
+| where timestamp > ago(7d)
+| where name == "gen_ai.evaluation.result"
+| extend source = tostring(customDimensions["microsoft.gen_ai.human_evaluation.source"]), label = tostring(customDimensions["gen_ai.evaluation.score.label"])
+| summarize total = count(), fail = countif(label == "fail") by source, bin(timestamp, 1d)
+| order by timestamp desc
+```
+
+List conversations with low-rating annotations as candidates to add to the evaluation dataset (section 9.2). Open a single flow with `operation_Id`.
+
+```kusto
+customEvents
+| where timestamp > ago(7d)
+| where name == "gen_ai.evaluation.result"
+| where tostring(customDimensions["gen_ai.evaluation.score.label"]) == "fail"
+| project timestamp, operation_Id, responseId = tostring(customDimensions["gen_ai.response.id"]), source = tostring(customDimensions["microsoft.gen_ai.human_evaluation.source"]), comment = tostring(customDimensions["gen_ai.evaluation.explanation"])
+| order by timestamp desc
 ```
 
 ## Appendix E. Tools to set up for GitHub Copilot

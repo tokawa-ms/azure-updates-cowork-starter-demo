@@ -12,8 +12,14 @@ on:
         default: "30"
         required: true
         type: string
+      baseline_run_id:
+        description: 比べる基準とする過去の評価ワークフローの実行 ID（空なら比べない）
+        default: ""
+        required: false
+        type: string
 
 permissions:
+  actions: read
   contents: read
   id-token: write
 
@@ -45,6 +51,22 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path eval/out/ci/summary.md) { Get-Content eval/out/ci/summary.md -Raw >> $env:GITHUB_STEP_SUMMARY }
+      # 基準の実行の成果物と比べ、ケースごとの入れ替わりと偶然の範囲かどうかを出す(9.6節)。
+      - name: Compare with baseline
+        if: ${{ !cancelled() && inputs.baseline_run_id != '' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASELINE_RUN_ID: ${{ inputs.baseline_run_id }}
+        run: |
+          if ($env:BASELINE_RUN_ID -notmatch '^\d+$') { throw 'baseline_run_id は数字の実行 ID にしてください。' }
+          if (-not (Test-Path eval/out/ci/summary.json)) { throw '今回の summary.json がないため比べられません。' }
+          gh run download $env:BASELINE_RUN_ID --repo $env:GITHUB_REPOSITORY --name foundry-evaluation --dir eval/out/baseline
+          if ($LASTEXITCODE -ne 0) { throw '基準の評価結果を取得できませんでした。' }
+          dotnet run --project eval/UpdatesCowork.EvalRunner -- compare --baseline eval/out/baseline --candidate eval/out/ci
+          $code = $LASTEXITCODE
+          if (Test-Path eval/out/ci/comparison.md) { Get-Content eval/out/ci/comparison.md -Raw >> $env:GITHUB_STEP_SUMMARY }
+          exit $code
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

@@ -34,6 +34,7 @@ public static class TelemetryNames
         public const string ArtifactSave = "artifact.save";
         public const string ContentSafetyShieldPrompt = "content_safety.shield_prompt";
         public const string McpToolExecute = "mcp.tool.execute";
+        public const string FeedbackRecord = "feedback.record";
     }
 
     public static class Attributes
@@ -69,6 +70,15 @@ public static class TelemetryNames
         public const string OutputTokens = "gen_ai.usage.output_tokens";
         public const string FeedbackRating = "auc.feedback.rating";
         public const string FeedbackComment = "auc.feedback.comment";
+        public const string FeedbackTraceLinked = "auc.feedback.trace_linked";
+        public const string CustomEventName = "microsoft.custom_event.name";
+        public const string EvaluationName = "gen_ai.evaluation.name";
+        public const string EvaluationScoreValue = "gen_ai.evaluation.score.value";
+        public const string EvaluationScoreLabel = "gen_ai.evaluation.score.label";
+        public const string EvaluationExplanation = "gen_ai.evaluation.explanation";
+        public const string HumanEvaluationSource = "microsoft.gen_ai.human_evaluation.source";
+        public const string EvaluationActorType = "microsoft.gen_ai.evaluation.actor.type";
+        public const string InternalProperties = "internal_properties";
     }
 
     public static class Metrics
@@ -106,4 +116,7 @@ public static class TelemetryNames
 
     /// <summary>フィードバックのログのメッセージ。</summary>
     public const string FeedbackLogMessage = "auc.feedback";
+
+    /// <summary>利用者の評価を Foundry のトレース注釈として送るイベントの名前(8.6節)。</summary>
+    public const string EvaluationResultEvent = "gen_ai.evaluation.result";
 }

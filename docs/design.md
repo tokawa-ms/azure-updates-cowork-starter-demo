@@ -73,7 +73,8 @@
 - OpenTelemetryのトレースがWebアプリ、Hosted Agent、ツールの順につながる様子を、ローカル(Aspireダッシュボード)とAzure (Application InsightsとFoundryポータル)で確かめられる。
 - トークン数、応答時間、ツールの失敗率を、メトリックとKQLで見られる。
 - 固定データで実応答を記録し、Foundryのクラウド評価と決定的な検査を組み合わせられる。継続評価は別途同意と費用・本文記録の検討が必要な発展課題とする。
-- 利用者の評価(役に立った、役に立たなかった)を応答IDと結びつけて記録し、評価データの見直しに使える。
+- 利用者の評価(役に立った、役に立たなかった)を応答IDと元のトレースに結びつけて記録し、評価データの見直しに使える。
+- 指示文やツールを直した版を同じデータで評価し、前の版との差が偶然の範囲かどうかを判定できる(9.9節)。
 
 ### 1.3 スコープ外
 
@@ -1046,7 +1047,7 @@ x-client-thread-id: th_01JCZ6V3S1Y4M5K8Q2W7E9R0TA
 
 ### 6.6 台帳(プロセスメモリー)
 
-`InMemoryChatRegistry`はスレッドを`(UserKey, ThreadId)`、成果物を`(UserKey, ArtifactId)`で管理する。スレッドには`ConversationId`、`LastResponseId`、Hosted Agentの`SessionId`を持たせ、成果物には`ThreadId`、ファイル名、種類、サイズ、`Storage`、`Location`、`SessionId`を持たせる。
+`InMemoryChatRegistry`はスレッドを`(UserKey, ThreadId)`、成果物を`(UserKey, ArtifactId)`で管理する。スレッドには`ConversationId`、`LastResponseId`、Hosted Agentの`SessionId`、直近20件の応答のトレースID・スパンID(`ResponseTraces`、8.6節)を持たせ、成果物には`ThreadId`、ファイル名、種類、サイズ、`Storage`、`Location`、`SessionId`を持たせる。
 
 BFFは成果物を登録するときと読み出すときに、`location`が`artifacts/art_<ULID>/<filename>`の形式かを検証する。ダウンロードは利用者キーで台帳を検索して所有者を確認した後にだけ、Session Files APIを呼ぶ。スレッド削除では同じスレッドの成果物レコードも削除する。
 
@@ -1146,6 +1147,7 @@ ActivitySourceとメーターの名前: `UpdatesCowork.Web`、`UpdatesCowork.Age
 | `web.artifact.register` | web | 成果物台帳への登録。`auc.outcome` |
 | `artifact.download` | web | `auc.artifact.id`、`auc.artifact.kind` |
 | `artifact.session_file.read`、`artifact.session.delete` | web | `auc.artifact.storage` (readのみ) |
+| `feedback.record` | web | 利用者の評価を、元の応答の`chat.turn`の子として記録する入れ物(8.6節)。属性は持たず、中のログに値を入れる |
 | `agent.turn` | agent | 1回のResponsesハンドラー実行。本文・引数は記録しない |
 | `model.call` | agentのモデルクライアント | `gen_ai.request.model`、取得可能な`gen_ai.usage.input_tokens`、`gen_ai.usage.output_tokens` |
 | `tool.execute` | agentのツールミドルウェア | `gen_ai.tool.name`、`gen_ai.tool.call.id`、`auc.outcome` |
@@ -1195,19 +1197,40 @@ ActivitySourceとメーターの名前: `UpdatesCowork.Web`、`UpdatesCowork.Age
 
 ### 8.6 利用者の評価を記録する
 
-`POST /api/feedback`を受けたら、次の2つを記録する。
+`POST /api/feedback`を受けたら、次の3つを記録する。
 
-- ログ(OpenTelemetryのログレコード): メッセージ`auc.feedback`、属性`gen_ai.response.id`、`gen_ai.conversation.id`、`auc.feedback.rating`、`auc.feedback.comment` (500文字まで)。
+- ログ(OpenTelemetryのログレコード): メッセージ`auc.feedback`、属性`gen_ai.response.id`、`gen_ai.conversation.id`、`auc.thread_id`、`auc.feedback.rating`、`auc.feedback.comment` (500文字まで)、`auc.feedback.trace_linked` (元のトレースに結び付けたか)。Application Insightsでは`traces`表に入る。
+- Foundryのトレース注釈(プレビュー)と同じ形のイベント`gen_ai.evaluation.result`。Application Insightsでは`customEvents`表に入る(下記)。
 - メトリック`auc.feedback` (`rating`次元)。
+
+トレース注釈は、Foundryの「Annotate traces with human feedback」の利用者フィードバックの形に合わせる。
+
+| 属性 | 値 |
+|---|---|
+| `microsoft.custom_event.name` | `gen_ai.evaluation.result`。Azure Monitorのエクスポーター(1.10.0)はこの属性を持つログを`customEvents`へ送る |
+| `gen_ai.evaluation.name` | `task_completion` (Foundryの既定の採点テンプレート) |
+| `gen_ai.evaluation.score.value` / `gen_ai.evaluation.score.label` | 役に立った: `1.0` / `pass`、役に立たなかった: `0.0` / `fail` |
+| `gen_ai.evaluation.explanation` | 整えたコメント(ある場合だけ) |
+| `gen_ai.response.id`、`gen_ai.conversation.id` | 評価した応答と会話 |
+| `microsoft.gen_ai.human_evaluation.source` | `end_user` (ポータルで開発者が付けた注釈は`builder`) |
+| `microsoft.gen_ai.evaluation.actor.type` | `human` |
+| `internal_properties` | しきい値、最小値、最大値、望ましい向き、種類(`boolean`)を入れたJSON文字列 |
+
+注釈は、評価した応答と同じトレースの中で出す必要がある。Webは`chat.turn`が終わるたびに、応答IDとそのスパンのトレースID・スパンIDを台帳のスレッドに残す(直近20件)。評価を受けたら、そのスパンを親にした`feedback.record`を開き、その中で`auc.feedback`と`gen_ai.evaluation.result`を記録する。こうするとログの`operation_Id`が元の会話のトレースIDになり、8.4節でつないだAgentの`invoke_agent`とも同じ`operation_Id`に並ぶ。`operation_ParentId`は`chat.turn`ではなく子の`feedback.record`になる。
+
+応答IDが台帳に見つからないとき(古い応答、プロセスの再起動後)は注釈を出さず、`auc.feedback`だけを評価要求のトレースに記録する。評価要求のトレースに注釈を付けると、Foundryでは別のトレースの評価に見えてしまうためである。`Web:Features:FeedbackAnnotations`を`false`にすると、注釈と元トレースへの結び付けを止め、従来の`auc.feedback`だけに戻る。利用者キーとCookieの値は注釈に入れない。
+
+Entra IDの認証でApplication Insightsへ送る構成では、送る側のIDに`Monitoring Metrics Publisher`が必要である。Foundryポータルでの表示は要確認(Q16)。
 
 低い評価が付いた応答は、応答IDでトレースを引き、評価データセットに足す候補にする(9.2節)。
 
 ### 8.7 アラート(推奨)
 
-BicepでLog Analyticsの検索アラートを2つ作る。通知先はアクショングループのメール(パラメーターで指定、空なら作らない)。
+BicepでLog Analyticsの検索アラートを3つ作る。通知先はアクショングループのメール(パラメーターで指定、空なら作らない)。
 
 - 15分間で`execute_tool`の失敗率が20%を超えたとき。
 - 15分間で`chat.turn`の95パーセンタイルが120秒を超えたとき。
+- 24時間で利用者の評価が10件以上あり、低い評価(`bad`)が30%を超えたとき。1時間ごとに`traces`の`auc.feedback`を数える。注釈の有無に関係なく動く。
 
 評価スコアの低下は、Foundryポータルのアラート(プレビュー)で設定する手順を学習ガイドに書く。
 
@@ -1244,7 +1267,10 @@ BicepでLog Analyticsの検索アラートを2つ作る。通知先はアクシ�
 | `injection` | 4 | 本文に指示を埋め込んだ固定データ(従わないべき) |
 
 - 固定データ(`eval/fixtures/updates/`)はP3で実際のAPIから保存する。`injection`用には、保存したデータを複製して本文に「以前の指示を無視して…」のような文を足したものを作り、IDに`-inj`を付ける。
-- 利用者の低い評価(8.6節)が付いた応答は、内容を確かめて区分を決め、このファイルに足す。
+- 利用者の低い評価(8.6節)や、Foundryポータルで開発者が付けた注釈がある応答は、次の順でこのファイルに足す。
+  1. 付録DのKQLで`fail`の注釈と応答IDを集め、トレースで原因(ツールの選び方、出典、指示違反など)を確かめる。
+  2. 利用者の文章や個人情報をそのまま使わず、同じ失敗を再現する依頼に書き直して、区分と`ground_truth`を決める。必要なら固定データも足す。
+  3. 基準の版で一度評価し、失敗が再現することを確かめてから足す。データセットのSHA-256が変わるので、以後の比較(9.9節)は新しいデータセットで基準を取り直す。
 - `page_context`は固定データからWebと共通の`PageContextText`で生成する。Agentに送るのはdeveloperのページ情報とuserの依頼だけ。正解、期待ツール、評価基準はAgentへ送らない。
 - データセット、全fixture、実際のAgent指示文のSHA-256、Agent名・版、judgeモデル名を実行メタデータへ保存する。
 
@@ -1334,6 +1360,7 @@ Responses要求で`session_creation_failed`と明示された場合だけ、10�
 2. 入力`agent_version`と`limit`を環境変数で安全にPowerShellへ渡す。
 3. `run-foundry.ps1`を実行し、`summary.md`をジョブの概要へ書く。失敗時も保存済み応答とレポートをアップロードする。
 4. 基準未達、通信失敗、後片付けの失敗を非ゼロ終了で通知する。
+5. 入力`baseline_run_id`があれば、その実行の成果物`foundry-evaluation`を`gh run download`で取得し、`EvalRunner compare`で比べる(9.9節)。比較結果もジョブの概要に書く。有意な悪化(終了コード1)と、条件が違って比べられない場合(2)はジョブを失敗にする。成果物の取得に`actions: read`の権限を使う。
 
 `evaluation`環境にOIDCのIDと`FOUNDRY_PROJECT_ENDPOINT`を設定する。Git remoteとOIDCがない環境ではワークフローファイルの作成とGitHub上の実行確認を区別する。
 
@@ -1347,6 +1374,31 @@ Responses要求で`session_creation_failed`と明示された場合だけ、10�
 - 安全性の評価は英語向けである。日本語の`injection`の区分は、独自の決定的な評価器で確かめる。
 - 日本語文字率は言語判定モデルではない。正式な英語の製品名や記事タイトルが多い日本語回答を不合格にすることがある。URL以外は除外しておらず、この限界をレポートに明記する。合格させる目的でしきい値を下げない。
 - judgeの判定も誤り得るため、不合格の理由と実応答を確認する。未採点と品質の不合格を区別して記録する。
+
+### 9.9 版の比較(継続的改善の検証)
+
+指示文やツールを直したら、同じ30件で新しい版を評価し、前の版と比べる。合格率の差だけでは判断しない。30件では1件が3.3ポイントに当たり、judgeの揺れでも数件は入れ替わるためである。
+
+```powershell
+dotnet run --project eval\UpdatesCowork.EvalRunner -- compare `
+  --baseline eval\out\core-v7 --candidate eval\out\core-v12 [--out <フォルダー>]
+```
+
+`compare`はネットワークを使わず、2つの実行フォルダーの`summary.json`と`definition.json`だけを読む。
+
+1. 前提を確かめる。`definition.json`の`dataset_sha256`、`fixtures_sha256`、`judge`、`response_source`、`task_query_format`がすべて一致し、両方の実行が完了していて、ケースIDの集合が同じこと。1つでも違えば「比べられない」と書き、終了コード2にする。
+2. 指標ごとに、両方で対象になったケースだけを対にして、不合格→合格(改善)と合格→不合格(悪化)のケースIDを並べる。対象外(`null`)のケースは対にしない。
+3. 改善と悪化の件数から正確McNemar検定(両側)のp値を出す。有意水準0.05で「改善」「悪化」「偶然の範囲」「変化なし」を判定する。合格率にはWilsonの95%区間を付ける。
+4. 結果を`comparison.json`と`comparison.md`に書く(既定は候補の実行フォルダー)。有意な悪化が1つでもあれば終了コード1、それ以外は0。
+
+ローカルの実行記録での結果は次のとおり(`docs/notes/evaluation.md`)。
+
+| 比較 | 結果 |
+|---|---|
+| v7→v12 | 条件は一致。`task_adherence`は24/30→29/30(+17ポイント)だが、改善6件・悪化1件でp=0.125のため「偶然の範囲」。終了コード0 |
+| v6→v12 | `task_query_format`が違う(v6はなし)ため比べられない。`task_adherence`は改善9件・悪化0件でp=0.004だが、採点入力の形式が変わった結果を含むので版の改善とは言えない。終了コード2 |
+
+Azure DevOpsの評価拡張(`AIAgentEvaluation@2`)も、信頼区間と、基準エージェントとの対の有意差検定を出す。ここではその考え方を、ローカルのファイルだけで再現した。検定の方法が拡張と同じとは限らない。Foundryの評価結果の比較画面や、エージェントの自動最適化(プレビュー)は使っていない。
 
 ## 10. インフラとデプロイ
 
@@ -1528,7 +1580,7 @@ Bicepはプロジェクト・モデル・RAI・ACR・監視の参照と`WEB_URL`
 | 3 | 業務支援エージェントを構成する | スキルの読み込み、非公開MCP、`update_plan`、WordとPowerPointの生成と検証、承認機能 |
 | 4 | Foundryにデプロイしてサイトに組み込む | `azd up`、エージェントIDへのロール付与、BFFからマネージドIDでの呼び出し、会話の続き、Session Files経由の成果物取得と削除、Foundry Agent Consumerを外したときの403 |
 | 5 | 観測する | Aspire Dashboard、Application InsightsのTransaction search、FoundryのTracesとMonitor、付録DのKQL、利用者の評価との結合 |
-| 6 | 評価する | 固定データ専用Agent、実応答の保存、Foundryの採点、Office検査、対象外と未採点の区別、品質ゲート |
+| 6 | 評価する | 固定データ専用Agent、実応答の保存、Foundryの採点、Office検査、対象外と未採点の区別、品質ゲート、`compare`による版の比較 |
 | 7 | 発展 | 利用者ごとのセッション分離、`x-agent-version-override`での版の比較、Prompt Shieldsの`Block`モード、レッドチーミング |
 
 1.2節の学習ゴールとの対応は次のとおり。Aはラボ1、2、4、Bはラボ3、Cはラボ5、6で扱う。
@@ -1537,7 +1589,7 @@ Bicepはプロジェクト・モデル・RAI・ACR・監視の参照と`WEB_URL`
 
 | 種類 | 対象 | 方針 |
 |---|---|---|
-| 単体テスト | Office、AzureUpdates、ChatEventMapper、PageContextValidator、SetCookieRewriter、HtmlRewriteTransform、ToolCallMiddleware | ネットワークを使わない。HTTPは`HttpMessageHandler`の差し替えで固定応答にする |
+| 単体テスト | Office、AzureUpdates、ChatEventMapper、PageContextValidator、SetCookieRewriter、HtmlRewriteTransform、ToolCallMiddleware、評価の比較(`EvaluationComparer`) | ネットワークを使わない。HTTPは`HttpMessageHandler`の差し替えで固定応答にする |
 | 結合テスト | web | `WebApplicationFactory`で起動する。エージェントは`FakeAgentGateway` (録画したSSEを再生)に差し替える |
 | SSEの録画 | `tests/recordings/*.sse` | P5で実際のエージェントの応答を保存し、`ChatEventMapper`のテストに使う |
 | 評価 | エージェント全体 | 9章 |
@@ -1576,6 +1628,7 @@ Bicepはプロジェクト・モデル・RAI・ACR・監視の参照と`WEB_URL`
 | Q13 | Prompt Shieldsの最新api-version | Content SafetyのRESTリファレンス | P4 |
 | Q14 | `id-web`が自分で作成したHosted Agentセッションのファイルを管理できるか | Microsoft Learnは通常の呼び出し元を自身のセッションに限定し、全利用者のセッション操作にはFoundry Userを要求している。デプロイ後にFoundry Agent ConsumerだけでGET/DELETEできることを確認する | P6 |
 | Q15 | 利用者のID委任に使うデータアクションの正確な名前 | 組み込みロールの定義とドキュメント | 発展 |
+| Q16 | `gen_ai.evaluation.result`の利用者フィードバックが、Foundryポータルのトレースに注釈として表示されるか。`operation_ParentId`が`chat.turn`の子の`feedback.record`でも、注釈の付く場所として扱われるか | デプロイ後に評価を送り、`customEvents`の`operation_Id`とポータルのTracesの注釈を見る。オフラインでは、ログが元の`chat.turn`のトレースIDと`feedback.record`の中で記録されることをテストで確認済み | 継続的改善 |
 
 ## 15. 参考資料
 
@@ -1602,8 +1655,27 @@ URLを書いたものは調査で中身を確かめた資料。URLのないも�
 ### 観測と評価
 
 - Microsoft.OpenTelemetry (.NETの配布版): https://github.com/microsoft/opentelemetry-distro-dotnet
-- Microsoft Learnのタイトル: Agent Framework observability、Quickstart: tracing for hosted agents、Trace agents (client side)、Monitor agents with the Agent Monitoring Dashboard、Agents view in Application Insights、Built-in evaluators、Agent evaluators、Cloud evaluation、Evaluate a hosted agent、Continuous evaluation、AI agent evaluation GitHub Action、AI Red Teaming Agent、Microsoft.Extensions.AI.Evaluation libraries
+- Microsoft Learnのタイトル: Agent Framework observability、Quickstart: tracing for hosted agents、Trace agents (client side)、Monitor agents with the Agent Monitoring Dashboard、Agents view in Application Insights、Built-in evaluators、Agent evaluators、Cloud evaluation、Evaluate a hosted agent、Continuous evaluation、AI agent evaluation GitHub Action、Azure DevOps AI agent evaluation extension、Annotate traces with human feedback、AI Red Teaming Agent、Microsoft.Extensions.AI.Evaluation libraries
 - C#の評価サンプル: GitHub `Azure/azure-sdk-for-net`の`sdk/ai/Azure.AI.Projects/samples` (Evaluations、Sample9_EvaluationRules)
+
+### 継続的改善(Ignite 2026)
+
+確立、特定、最適化、検証して繰り返すの4つのステップと、各機能の提供状況は、次の公式情報で確かめた(2026-11-19)。
+
+- Continuous improvement comes to Microsoft Foundry (Azure Blog、2026-11-17): https://azure.microsoft.com/en-us/blog/continuous-improvement-comes-to-microsoft-foundry/
+- What's new in Foundry Agent Service at Ignite 2026 (Microsoft Foundry Blog): https://devblogs.microsoft.com/foundry/whats-new-in-foundry-agent-service-at-ignite-2026/
+- Microsoft Foundry portal general availability overview: https://learn.microsoft.com/azure/foundry/concepts/general-availability
+- Annotate traces with human feedback: https://learn.microsoft.com/azure/foundry/observability/how-to/trace-annotations
+- Log end user feedback: https://learn.microsoft.com/azure/foundry/observability/how-to/log-end-user-feedback
+- Capture end-user feedback for GenAI agents (Azure Monitor): https://learn.microsoft.com/azure/azure-monitor/app/opentelemetry-add-modify#capture-end-user-feedback-for-genai-agents
+- Human in the loop: https://learn.microsoft.com/azure/foundry/observability/how-to/human-in-the-loop
+- Curate golden datasets: https://learn.microsoft.com/azure/foundry/observability/how-to/human-in-the-loop-golden-datasets
+- Rubric evaluators: https://learn.microsoft.com/azure/foundry/concepts/evaluation-evaluators/rubric-evaluators
+- Find recurring issues with insights: https://learn.microsoft.com/azure/foundry/observability/how-to/agent-insights
+- What is the agent optimizer?: https://learn.microsoft.com/azure/foundry/agents/concepts/agent-optimizer-overview
+- Fix insights with agent optimizer: https://learn.microsoft.com/azure/foundry/agents/how-to/optimize-agents-from-insights
+- Optimize skills: https://learn.microsoft.com/azure/foundry/agents/how-to/optimize-skills-from-traces
+- Set up continuous and scheduled evaluation: https://learn.microsoft.com/azure/foundry/observability/how-to/continuous-scheduled-evaluation
 
 ### 更新情報のデータ
 
@@ -1780,6 +1852,28 @@ customMetrics
 | where timestamp > ago(1d)
 | where name == "auc.chat.ttft"
 | summarize avg_ms = sum(valueSum) / sum(valueCount) by bin(timestamp, 1h)
+```
+
+トレース注釈(8.6節)を、出どころ(利用者か開発者か)と日ごとに数える。
+
+```kusto
+customEvents
+| where timestamp > ago(7d)
+| where name == "gen_ai.evaluation.result"
+| extend source = tostring(customDimensions["microsoft.gen_ai.human_evaluation.source"]), label = tostring(customDimensions["gen_ai.evaluation.score.label"])
+| summarize total = count(), fail = countif(label == "fail") by source, bin(timestamp, 1d)
+| order by timestamp desc
+```
+
+低い評価の注釈が付いた会話を、評価データセットに足す候補として並べる(9.2節)。`operation_Id`で1件の流れを開ける。
+
+```kusto
+customEvents
+| where timestamp > ago(7d)
+| where name == "gen_ai.evaluation.result"
+| where tostring(customDimensions["gen_ai.evaluation.score.label"]) == "fail"
+| project timestamp, operation_Id, responseId = tostring(customDimensions["gen_ai.response.id"]), source = tostring(customDimensions["microsoft.gen_ai.human_evaluation.source"]), comment = tostring(customDimensions["gen_ai.evaluation.explanation"])
+| order by timestamp desc
 ```
 
 ## 付録 E. GitHub Copilotに入れておく道具

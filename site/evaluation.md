@@ -269,7 +269,11 @@ if ($LASTEXITCODE -ne 0) { throw "品質ゲートまたは評価処理が失敗�
 ```
 {% endraw %}
 
-ジョブには `id-token: write` が設定されています。`run-foundry.ps1` が非ゼロで終われば実行ステップも失敗し、後続の `if: always()` で summary と `foundry-evaluation` artifact を残します。失敗を無視して配置へ進む処理はありません。現ワークフローには本番への自動配置自体がありません。Foundry の評価用 azd 拡張で同じゲートを作る方法は、第 8 章で扱います。
+ジョブには `id-token: write` が設定されています。`run-foundry.ps1` が非ゼロで終われば実行ステップも失敗し、後続の `if: always()` で summary と `foundry-evaluation` artifact を残します。失敗を無視して配置へ進む処理はありません。現ワークフローには本番への自動配置自体がありません。
+
+起動時に入力 `baseline_run_id` へ以前の評価の実行 ID を入れると、その実行の `foundry-evaluation` artifact と今回の結果を EvalRunner の `compare` で比べ、指標ごとの差が偶然の範囲かを summary に追記します。有意な悪化や、比べられない組（データセットや judge が違う）では、ジョブを失敗にします。比べ方と結果の読み方、Foundry の評価用 azd 拡張で同じゲートを作る方法は、第 8 章で扱います。
+
+<a class="text-link" href="{{ '/automation/' | relative_url }}#validate">第 8 章: 版の差が偶然の範囲かを確かめる <span aria-hidden="true">→</span></a>
 
 <aside class="callout callout-caution">
   <span class="callout-label">確認済みの範囲</span>

@@ -3,9 +3,9 @@ using UpdatesCowork.EvalRunner;
 
 try
 {
-    if (args.Length == 0 || args[0] is not ("prepare" or "attach" or "collect" or "check"))
+    if (args.Length == 0 || args[0] is not ("prepare" or "attach" or "collect" or "check" or "compare"))
     {
-        Console.Error.WriteLine("prepare --dataset <jsonl> --fixtures <dir> --agent <name-eval> --agent-version <version> --judge <model> --out <dir> [--limit N]\nattach --out <dir>\ncollect --out <dir>\ncheck --out <dir> --thresholds <json>");
+        Console.Error.WriteLine("prepare --dataset <jsonl> --fixtures <dir> --agent <name-eval> --agent-version <version> --judge <model> --out <dir> [--limit N]\nattach --out <dir>\ncollect --out <dir>\ncheck --out <dir> --thresholds <json>\ncompare --baseline <dir> --candidate <dir> [--out <dir>]");
         return 2;
     }
 
@@ -39,6 +39,15 @@ try
     {
         await EvaluationReport.CollectAsync(Required("out"), CancellationToken.None).ConfigureAwait(false);
         return 0;
+    }
+
+    if (args[0] == "compare")
+    {
+        // 終了コード: 0 = 有意な悪化なし、1 = 有意に悪化した指標あり、2 = 比較の前提が揃っていない。
+        var candidate = Required("candidate");
+        return await EvaluationComparer.CompareAsync(Required("baseline"), candidate,
+            options.TryGetValue("out", out var compareOut) && !string.IsNullOrWhiteSpace(compareOut) ? compareOut : candidate,
+            CancellationToken.None).ConfigureAwait(false);
     }
 
     return await EvaluationReport.CheckAsync(Required("out"), Required("thresholds"), CancellationToken.None).ConfigureAwait(false);

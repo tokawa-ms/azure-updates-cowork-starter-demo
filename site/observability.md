@@ -247,6 +247,10 @@ union requests, dependencies
 
 `cloud_RoleName` で絞るときは `UpdatesCowork.Agent` を指定します。`updates-cowork` では該当しません。本番と評価用は、同じトレースに含まれる `invoke_agent updates-cowork` と `invoke_agent updates-cowork-eval` で区別します。
 
+利用者がチャットの応答に付けた評価も、その応答のトレースに入ります。Web は応答を返した `chat.turn` のスパンを親にして `feedback.record` を開き、ログ `auc.feedback` と、Foundry のトレースの注釈と同じ形のログ `gen_ai.evaluation.result` を出します。低い評価の割合を集計する KQL とアラートは、第 8 章で扱います。
+
+<a class="text-link" href="{{ '/automation/' | relative_url }}#establish">第 8 章: 利用者の評価をトレースに付ける <span aria-hidden="true">→</span></a>
+
 </div>
 </section>
 

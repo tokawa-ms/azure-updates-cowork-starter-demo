@@ -32,7 +32,24 @@ internal sealed record ChatThread
     public DateTimeOffset CreatedUtc { get; init; }
 
     public DateTimeOffset UpdatedUtc { get; init; }
+
+    /// <summary>応答 ID ごとの chat.turn のトレース。評価を元のトレースに結び付けるために使う(8.6節)。</summary>
+    public IReadOnlyList<ResponseTrace> ResponseTraces { get; init; } = [];
+
+    /// <summary>保持する応答トレースの上限。古いものから捨てる。</summary>
+    public const int MaxResponseTraces = 20;
+
+    public ChatThread WithResponseTrace(ResponseTrace trace) => this with
+    {
+        ResponseTraces = [.. ResponseTraces.Where(item => item.ResponseId != trace.ResponseId).TakeLast(MaxResponseTraces - 1), trace],
+    };
+
+    public ResponseTrace? FindResponseTrace(string responseId) =>
+        ResponseTraces.LastOrDefault(item => item.ResponseId == responseId);
 }
+
+/// <summary>応答を返した chat.turn スパンの識別子(W3C の16進表記)。</summary>
+internal sealed record ResponseTrace(string ResponseId, string TraceId, string SpanId, bool Recorded);
 
 /// <summary>台帳に登録した成果物。</summary>
 internal sealed record ArtifactRecord

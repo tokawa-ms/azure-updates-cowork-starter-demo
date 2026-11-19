@@ -242,6 +242,11 @@ internal sealed partial class ChatOrchestrator(
                     LastResponseId = mapper.ResponseId ?? thread.LastResponseId,
                     ConversationId = mapper.ConversationId ?? thread.ConversationId,
                 };
+                if (mapper.ResponseId is { Length: > 0 } responseId)
+                {
+                    thread = thread.WithResponseTrace(new ResponseTrace(responseId, traceId,
+                        turnSpan.Activity.SpanId.ToHexString(), turnSpan.Activity.Recorded));
+                }
 
                 // 画面との接続が切れても、最後の応答 ID は保存しておく。
                 await registry.UpdateThreadAsync(thread, CancellationToken.None).ConfigureAwait(false);

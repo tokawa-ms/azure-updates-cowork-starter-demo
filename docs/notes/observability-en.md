@@ -67,6 +67,42 @@ The custom Agent's `cloud_RoleName` is `UpdatesCowork.Agent`; filtering by `upda
 
 Q4 W3C trace correlation is verified with real data. Propagation solely through the Q5 fallback `x-client-trace-id` header remains unverified; Q4 success is not evidence for it. Response/conversation ID correlation is also retained.
 
+## Attach end-user ratings to the original trace
+
+The chat's "Helpful" / "Not helpful" ratings are recorded inside `feedback.record`, a child of the rated response's `chat.turn` span. Two logs are emitted there: `auc.feedback`, and `gen_ai.evaluation.result`, which has the same shape as a Foundry trace annotation (preview) (design §8.6). The rating arrives as a separate HTTP request, but the logs appear in the original conversation trace.
+
+This was checked on 2026-11-19 with the fake Agent (`--launch-profile fake-agent`) and the Aspire Dashboard. One chat message was sent, and its response was rated "Not helpful" with the comment 「出典のURLがない」 ("no source URL").
+
+```powershell
+docker compose -f tools/otel/compose.yaml up -d
+dotnet run --project src/UpdatesCowork.Web --launch-profile fake-agent
+```
+
+The trace ID received in the chat SSE `meta` event:
+
+```text
+event: meta
+data: {"threadId":"th_01M7SMWGBD8T29K5FCZH9YY9J5","responseId":"resp_fake_word_0001","traceId":"1dfad41fb91aab6af968a56ad29280fa",...}
+```
+
+After the rating was sent, opening this trace ID in the Dashboard showed `feedback.record` at the end of the `POST /api/chat` trace with two logs. The attributes of the second log:
+
+| Name | Value |
+|---|---|
+| `microsoft.custom_event.name` | `gen_ai.evaluation.result` |
+| `gen_ai.evaluation.name` | `task_completion` |
+| `gen_ai.evaluation.score.value` | `0` |
+| `gen_ai.evaluation.score.label` | `fail` |
+| `gen_ai.response.id` | `resp_fake_word_0001` |
+| `microsoft.gen_ai.human_evaluation.source` | `end_user` |
+| `microsoft.gen_ai.evaluation.actor.type` | `human` |
+| `gen_ai.evaluation.explanation` | `出典のURLがない` |
+| TraceId | `1dfad41fb91aab6af968a56ad29280fa` |
+
+In the console logs, both entries had `ParentId` equal to the `chat.turn` span ID `6a1f8decd0db8b38`. In previous-response-ID mode (the local default) there is no conversation ID, so `gen_ai.conversation.id` is omitted from the annotation.
+
+In Azure, `gen_ai.evaluation.result` is expected to land in Application Insights `customEvents` and `auc.feedback` in `traces`. Arrival in `customEvents` and display as an annotation on the trace in the Foundry portal are post-deployment checks (Q16) and have not been verified yet. Use the KQL in design Appendix D when checking.
+
 ## Content capture and precautions
 
 | Source | Configuration / observation |

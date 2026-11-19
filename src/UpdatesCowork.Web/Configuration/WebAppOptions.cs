@@ -82,6 +82,9 @@ internal sealed class WebFeatureOptions
     public bool Approvals { get; set; }
 
     public bool LearningMode { get; set; } = true;
+
+    /// <summary>利用者の評価を元の会話のトレースに結び付け、Foundry のトレース注釈(<c>gen_ai.evaluation.result</c>)としても送る(8.6節)。</summary>
+    public bool FeedbackAnnotations { get; set; } = true;
 }
 
 internal enum AuthMode
